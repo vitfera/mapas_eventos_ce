@@ -1,16 +1,17 @@
-# 🚀 Deploy no Coolify - Dashboard de Espaços Culturais
+# 🚀 Deploy no Coolify - Dashboard de Eventos Culturais
 
 ## 📋 Visão Geral
 
-Este guia mostra como fazer deploy do Dashboard de Espaços Culturais do Ceará no Coolify usando apenas o Dockerfile do GitHub. A aplicação será dividida em dois serviços:
+Este guia mostra como fazer deploy do Dashboard de Eventos Culturais do Ceará no Coolify usando apenas o Dockerfile do GitHub. A aplicação será dividida em três serviços:
 
 1. **Banco de dados MariaDB** (serviço gerenciado do Coolify)
-2. **Aplicação PHP** (construída a partir do Dockerfile do GitHub)
+2. **Redis** (cache para melhor performance)
+3. **Aplicação PHP** (construída a partir do Dockerfile do GitHub)
 
 ## 🎯 Pré-requisitos
 
 - Acesso a uma instância Coolify
-- Repositório GitHub: `https://github.com/vitfera/mapas_espacos_ce`
+- Repositório GitHub: `https://github.com/seu-usuario/mapas_eventos`
 - 10 minutos para configuração
 
 ## 📝 Passo 1: Criar o Banco de Dados MariaDB
@@ -27,9 +28,9 @@ Preencha os campos:
 
 | Campo | Valor |
 |-------|-------|
-| **Name** | `mapas-espacos-db` |
+| **Name** | `mapas-eventos-db` |
 | **Version** | `11.2` (ou latest) |
-| **Database Name** | `mapas_espacos` |
+| **Database Name** | `mapas_eventos` |
 | **Database User** | `mapas_user` |
 | **Database Password** | _Gere uma senha forte_ |
 | **Root Password** | _Gere uma senha forte_ |
@@ -40,7 +41,7 @@ Preencha os campos:
 
 Após criar o banco, **copie e guarde**:
 
-- ✅ Nome do serviço interno (hostname): `mapas-espacos-db`
+- ✅ Nome do serviço interno (hostname): `mapas-eventos-db`
 - ✅ Senha do usuário `mapas_user`
 - ✅ Senha do root
 
@@ -64,9 +65,9 @@ Preencha os campos:
 
 | Campo | Valor |
 |-------|-------|
-| **Repository URL** | `https://github.com/vitfera/mapas_espacos_ce` |
+| **Repository URL** | `https://github.com/seu-usuario/mapas_eventos` |
 | **Branch** | `main` |
-| **Name** | `mapas-espacos-app` |
+| **Name** | `mapas-eventos-app` |
 
 ### 2.3. Configurar build
 
@@ -92,13 +93,16 @@ Na seção **Ports**:
 Na seção **Environment Variables**, adicione:
 
 ```env
-DB_HOST=mapas-espacos-db
+DB_HOST=mapas-eventos-db
 DB_PORT=3306
-DB_DATABASE=mapas_espacos
+DB_DATABASE=mapas_eventos
 DB_USERNAME=mapas_user
 DB_PASSWORD=<senha-do-passo-1.2>
-REDIS_HOST=redis
+REDIS_HOST=mapas-eventos-redis
 REDIS_PORT=6379
+REDIS_PASSWORD=redis_password
+API_URL=https://mapacultural.secult.ce.gov.br/api
+API_TIMEOUT=30
 APP_ENV=production
 APP_DEBUG=false
 ```
@@ -117,7 +121,7 @@ APP_DEBUG=false
 
 | Campo | Valor |
 |-------|-------|
-| **Name** | `mapas-espacos-redis` |
+| **Name** | `mapas-eventos-redis` |
 | **Version** | `7-alpine` |
 
 ### 3.3. Deploy do Redis
@@ -173,7 +177,7 @@ EOF
 Execute no terminal do MariaDB:
 
 ```sql
-USE mapas_espacos;
+USE mapas_eventos;
 SHOW TABLES;
 ```
 
@@ -181,13 +185,14 @@ Você deve ver:
 
 ```
 +---------------------------+
-| Tables_in_mapas_espacos   |
+| Tables_in_mapas_eventos   |
 +---------------------------+
-| areas_atuacao             |
-| espacos                   |
-| espacos_areas             |
+| eventos                   |
+| eventos_linguagens        |
+| linguagens                |
+| municipios                |
 | sync_logs                 |
-| vw_distribuicao_areas     |
+| vw_distribuicao_linguagens|
 | vw_distribuicao_municipios|
 | vw_estatisticas           |
 +---------------------------+
@@ -226,28 +231,27 @@ Durante o deploy, verifique:
 2. Execute:
 
 ```bash
-php cron/sync_espacos.php
+php cron/sync_eventos.php
 ```
 
-3. Aguarde a sincronização (pode levar 5-10 minutos)
+3. Aguarde a sincronização (deve levar 1-3 minutos)
 4. Você verá o progresso:
 
 ```
 Sincronização iniciada...
-Processando página 1/68...
-Processando página 2/68...
+Processando eventos com selo 32...
 ...
-✓ Sincronização concluída: 6372 espaços processados
+✓ Sincronização concluída: 475 eventos processados
 ```
 
 ### 6.2. Verificar no dashboard
 
 1. Recarregue a URL pública
 2. Você deve ver:
-   - ✅ Total de Espaços: 6.372
-   - ✅ Municípios: 206
-   - ✅ Áreas de Atuação: 67
-   - ✅ Com Acessibilidade: 5.059
+   - ✅ Total de Eventos: 475
+   - ✅ Municípios: ~50
+   - ✅ Linguagens: ~25
+   - ✅ Com Acessibilidade: variável
 
 ## 📝 Passo 7: Configurar Domínio (Opcional)
 
@@ -255,7 +259,7 @@ Processando página 2/68...
 
 1. Na aplicação, vá para **Domains**
 2. Clique em **+ Add Domain**
-3. Digite seu domínio: `espacos.seudominio.com`
+3. Digite seu domínio: `eventos.seudominio.com`
 4. Clique em **Add**
 
 ### 7.2. Configurar DNS
@@ -272,7 +276,7 @@ O Coolify gera certificado Let's Encrypt automaticamente:
 
 1. Aguarde alguns minutos após adicionar o domínio
 2. O status mudará para **SSL: Active**
-3. Acesse via HTTPS: `https://espacos.seudominio.com`
+3. Acesse via HTTPS: `https://eventos.seudominio.com`
 
 ## 📝 Passo 8: Configurar Sincronização Automática
 
@@ -285,8 +289,8 @@ O Coolify gera certificado Let's Encrypt automaticamente:
 
 | Campo | Valor |
 |-------|-------|
-| **Name** | `Sincronizar Espaços Culturais` |
-| **Command** | `php cron/sync_espacos.php` |
+| **Name** | `Sincronizar Eventos Culturais` |
+| **Command** | `php cron/sync_eventos.php` |
 | **Schedule** | `0 */6 * * *` (a cada 6 horas) |
 | **Enabled** | ✅ |
 
@@ -310,10 +314,10 @@ Após completar todos os passos:
 - [ ] Redis online e funcionando
 - [ ] Aplicação deployada com sucesso
 - [ ] Dashboard acessível via URL pública
-- [ ] Sincronização inicial concluída (6.372+ espaços)
+- [ ] Sincronização inicial concluída (475+ eventos)
 - [ ] Estatísticas exibindo corretamente
-- [ ] Gráfico de áreas funcionando
-- [ ] Tabela de espaços populada
+- [ ] Gráfico de linguagens funcionando
+- [ ] Tabela de eventos populada com ID, Nome, Data, Hora, Local, Tags
 - [ ] Filtros funcionando
 - [ ] Exportação CSV funcionando
 - [ ] Sincronização automática configurada
@@ -340,7 +344,7 @@ Após completar todos os passos:
 2. Confirme que o banco está online
 3. Teste conexão no terminal:
    ```bash
-   php -r "new PDO('mysql:host=mapas-espacos-db;dbname=mapas_espacos', 'mapas_user', 'senha');"
+   php -r "new PDO('mysql:host=mapas-eventos-db;dbname=mapas_eventos', 'mapas_user', 'senha');"
    ```
 
 ### Problema: Dashboard vazio
@@ -348,29 +352,29 @@ Após completar todos os passos:
 **Sintomas**: Dashboard carrega mas sem dados
 
 **Soluções**:
-1. Execute sincronização manual: `php cron/sync_espacos.php`
+1. Execute sincronização manual: `php cron/sync_eventos.php`
 2. Verifique se há dados no banco:
    ```sql
-   SELECT COUNT(*) FROM espacos;
+   SELECT COUNT(*) FROM eventos;
    ```
 3. Limpe o cache Redis:
    ```bash
    php -r "
    \$redis = new Redis();
-   \$redis->connect('mapas-espacos-redis', 6379);
+   \$redis->connect('mapas-eventos-redis', 6379);
    \$redis->flushAll();
    "
    ```
 
 ### Problema: Sincronização lenta
 
-**Sintomas**: `sync_espacos.php` demora muito
+**Sintomas**: `sync_eventos.php` demora muito
 
 **Soluções**:
-1. É normal na primeira vez (6.700+ registros)
-2. Aguarde até 10 minutos
-3. Verifique logs para erros
-4. Considere aumentar recursos do container
+1. Sincronização de 475 eventos deve levar 1-3 minutos
+2. Se demorar mais, verifique logs para erros
+3. Verifique conectividade com a API do Mapa Cultural
+4. Considere aumentar API_TIMEOUT nas variáveis de ambiente
 
 ### Problema: SSL não funciona
 
@@ -403,9 +407,10 @@ No painel do Coolify:
 
 ### Métricas importantes
 
-- **Espaços sincronizados**: Deve ser ~6.372
+- **Eventos sincronizados**: Deve ser ~475 (eventos com selo 32)
 - **Última sincronização**: Verificar regularidade
 - **Taxa de erro**: Deve ser próxima de 0%
+- **Campos preenchidos**: Verificar se data, hora, local e tags estão sendo extraídos
 
 ## 🔐 Segurança
 
@@ -431,15 +436,15 @@ Configure backup automático no Coolify:
 
 ## 📚 Recursos Adicionais
 
-- [Repositório GitHub](https://github.com/vitfera/mapas_espacos_ce)
-- [Documentação Docker](docs/README_DOCKER.md)
-- [Guia do Dashboard](docs/GUIA_DASHBOARD.md)
+- [Repositório GitHub](https://github.com/seu-usuario/mapas_eventos)
+- [Documentação Docker](README_DOCKER.md)
+- [Guia do Dashboard](GUIA_DASHBOARD.md)
 - [API do Mapa Cultural](https://mapacultural.secult.ce.gov.br/api/)
 
 ## 🆘 Suporte
 
-- **Issues**: https://github.com/vitfera/mapas_espacos_ce/issues
-- **Autor**: Victor Ferreira <vitfera@hotmail.com>
+- **Issues**: https://github.com/seu-usuario/mapas_eventos/issues
+- **API Mapa Cultural**: https://mapacultural.secult.ce.gov.br
 
 ---
 

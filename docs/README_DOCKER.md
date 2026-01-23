@@ -1,4 +1,4 @@
-# 🐳 Guia Docker - Mapa Cultural do Ceará
+# 🐳 Guia Docker - Dashboard de Eventos Culturais do Ceará
 
 ## 📋 Pré-requisitos
 
@@ -10,7 +10,7 @@
 ### 1. Clonar e configurar
 
 ```bash
-cd /Applications/MAMP/htdocs/mapas_espacos
+cd /Applications/MAMP/htdocs/mapas_eventos
 cp .env.example .env
 ```
 
@@ -30,21 +30,21 @@ docker compose down
 ### 3. Acessar aplicação
 
 - **Aplicação**: http://localhost:10500
-- **phpMyAdmin**: http://localhost:8081
+- **phpMyAdmin**: http://localhost:10501
 - **Banco de dados**: localhost:3307
 
 ### 4. Credenciais padrão
 
 **Banco de dados:**
 - Host: `localhost` (ou `db` dentro do Docker)
-- Porta: `3307` (externa) / `3306` (interna)
-- Database: `mapas_espacos`
+- Porta: `3306` (externa) / `3306` (interna)
+- Database: `mapas_eventos`
 - Usuário: `mapas_user`
 - Senha: `mapas_password`
 - Root: `root_password`
 
 **phpMyAdmin:**
-- URL: http://localhost:8081
+- URL: http://localhost:10501
 - Servidor: `db`
 - Usuário: `mapas_user`
 - Senha: `mapas_password`
@@ -55,12 +55,12 @@ docker compose down
 
 1. **Novo Recurso** → **Database** → **MariaDB**
 2. Configurar:
-   - Nome: `mapas-espacos-db`
+   - Nome: `mapas-eventos-db`
    - Versão: `11.2` ou latest
-   - Database: `mapas_espacos`
+   - Database: `mapas_eventos`
    - Usuário: `mapas_user`
    - Senha: Gerar senha segura
-3. **Deploy** e anotar o hostname interno (ex: `mapas-espacos-db`)
+3. **Deploy** e anotar o hostname interno (ex: `mapas-eventos-db`)
 
 ### 2. Criar aplicação PHP
 
@@ -77,11 +77,15 @@ docker compose down
 No painel da aplicação, adicionar:
 
 ```env
-DB_HOST=mapas-espacos-db
+DB_HOST=mapas-eventos-db
 DB_PORT=3306
-DB_DATABASE=mapas_espacos
+DB_DATABASE=mapas_eventos
 DB_USERNAME=mapas_user
 DB_PASSWORD=<senha-criada-no-passo-1>
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_PASSWORD=redis_password
+API_URL=https://mapacultural.secult.ce.gov.br/api
 APP_ENV=production
 APP_DEBUG=false
 ```
@@ -101,7 +105,7 @@ Ou via terminal:
 docker cp database/init.sql <mariadb-container-id>:/tmp/init.sql
 
 # Executar SQL
-docker exec <mariadb-container-id> mysql -u mapas_user -p mapas_espacos < /tmp/init.sql
+docker exec <mariadb-container-id> mysql -u mapas_user -p mapas_eventos < /tmp/init.sql
 ```
 
 ### 5. Deploy e verificar
@@ -144,13 +148,13 @@ docker compose ps
 
 ```bash
 # Backup do banco
-docker compose exec db mysqldump -u mapas_user -pmapas_password mapas_espacos > backup.sql
+docker compose exec db mysqldump -u mapas_user -pmapas_password mapas_eventos > backup.sql
 
 # Restaurar backup
-docker compose exec -T db mysql -u mapas_user -pmapas_password mapas_espacos < backup.sql
+docker compose exec -T db mysql -u mapas_user -pmapas_password mapas_eventos < backup.sql
 
 # Acessar MySQL CLI
-docker compose exec db mysql -u mapas_user -pmapas_password mapas_espacos
+docker compose exec db mysql -u mapas_user -pmapas_password mapas_eventos
 ```
 
 ### Desenvolvimento
@@ -169,7 +173,7 @@ docker volume prune
 ## 📂 Estrutura de arquivos
 
 ```
-mapas_espacos/
+mapas_eventos/
 ├── Dockerfile                 # Imagem da aplicação (usado no Coolify)
 ├── docker-compose.yml         # Desenvolvimento local (não usado no Coolify)
 ├── .dockerignore             # Arquivos ignorados no build
@@ -177,11 +181,21 @@ mapas_espacos/
 ├── database/
 │   └── init.sql              # Schema do banco
 ├── config/
-│   └── database.php          # Conexão PDO
+│   ├── database.php          # Conexão PDO
+│   └── redis.php             # Configuração Redis
+├── services/
+│   ├── MapaCulturalAPI.php   # Cliente API
+│   └── SyncService.php       # Serviço de sincronização
+├── api/
+│   ├── eventos.php           # Endpoint de eventos
+│   ├── stats.php             # Endpoint de estatísticas
+│   └── sync.php              # Endpoint de sincronização
+├── assets/
+│   ├── script.js             # JavaScript
+│   └── styles.css            # Estilos
 ├── index.html                # Frontend
-├── script.js                 # JavaScript
-├── styles.css                # Estilos
-└── api.php                   # Backend API
+└── cron/
+    └── sync_eventos.php      # Script de sincronização
 ```
 
 ## 🔄 Diferença entre ambientes

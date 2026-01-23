@@ -1,4 +1,4 @@
-# 📊 Dashboard - Guia de Uso
+# 📊 Dashboard de Eventos Culturais - Guia de Uso
 
 ## Como usar o Dashboard
 
@@ -7,21 +7,22 @@
 Após iniciar os containers Docker, acesse: http://localhost:10500
 
 O dashboard carregará automaticamente:
-- ✅ Estatísticas gerais (total de espaços, municípios, áreas, acessibilidade)
-- 📊 Gráfico de distribuição por área de atuação
-- 📋 Tabela com os espaços culturais
+- ✅ Estatísticas gerais (total de eventos, municípios, linguagens, acessibilidade)
+- 📊 Gráfico de distribuição por linguagem
+- 📋 Tabela com os eventos culturais
 
 ### 2. Sincronização de Dados
 
 **Primeira sincronização (obrigatória):**
 ```bash
-docker compose exec app php cron/sync_espacos.php
+docker compose exec app php cron/sync_eventos.php
 ```
 
 Isso irá:
-- Buscar todos os espaços da API do Mapa Cultural
+- Buscar todos os eventos da API do Mapa Cultural com selo 32
 - Processar e armazenar no banco de dados
-- Pode levar alguns minutos (são 6.700+ espaços)
+- Extrair dados de data, hora, local e tags
+- Pode levar alguns minutos (são 475+ eventos)
 
 **Sincronizações posteriores:**
 - Clique no botão "Sincronizar" no dashboard
@@ -35,14 +36,14 @@ Isso irá:
 2. Escolha um município da lista
 3. A tabela será atualizada automaticamente
 
-**Filtrar por Área de Atuação:**
-1. Clique no select "Filtrar por Área"
-2. Escolha uma área (Teatro, Música, Artes Visuais, etc.)
+**Filtrar por Linguagem:**
+1. Clique no select "Filtrar por Linguagem"
+2. Escolha uma linguagem (Música, Teatro, Dança, etc.)
 3. A tabela será atualizada automaticamente
 
 **Combinar filtros:**
 - Você pode usar ambos os filtros simultaneamente
-- Exemplo: "Fortaleza" + "Teatro" mostrará apenas teatros de Fortaleza
+- Exemplo: "Fortaleza" + "Música" mostrará apenas eventos musicais de Fortaleza
 
 ### 4. Exportação de Dados
 
@@ -55,27 +56,29 @@ Isso irá:
 **Formato do CSV:**
 - Codificação: UTF-8 com BOM
 - Separador: vírgula (,)
-- Colunas: ID, ID Externo, Nome, Município, Áreas de Atuação, Acessibilidade
+- Colunas: ID, ID Externo, Nome, Município, Linguagens, Data Início, Data Fim
 
 ### 5. Visualização de Dados
 
 **Cards de Estatísticas:**
-- **Total de Espaços**: Quantidade total de espaços cadastrados
-- **Municípios**: Número de cidades com espaços culturais
-- **Áreas de Atuação**: Quantidade de categorias diferentes
-- **Com Acessibilidade**: Espaços com recursos de acessibilidade
+- **Total de Eventos**: Quantidade total de eventos cadastrados
+- **Municípios**: Número de cidades com eventos culturais
+- **Linguagens**: Quantidade de categorias diferentes
+- **Com Acessibilidade**: Eventos com recursos de acessibilidade
 
 **Gráfico de Barras:**
-- Mostra as 5 principais áreas de atuação
-- Altura da barra representa a quantidade de espaços
-- Hover sobre a barra mostra o nome completo da área
+- Mostra as 10 principais linguagens
+- Altura da barra representa a quantidade de eventos
+- Hover sobre a barra mostra o nome completo da linguagem
 
-**Tabela de Espaços:**
-- Nome do espaço com iniciais em destaque
-- Município onde está localizado
-- Áreas de atuação (até 2 visíveis + contador se houver mais)
-- Status de acessibilidade (Sim/Não)
-- Link para ver detalhes no Mapa Cultural
+**Tabela de Eventos:**
+- **ID Mapas**: ID do evento no Mapa Cultural
+- **Nome**: Nome do evento
+- **Data**: Data de início formatada
+- **Hora**: Horário de início do evento
+- **Local**: Nome do espaço onde ocorre o evento
+- **Tags**: Tags do evento (Banda, Bloco, etc.)
+- **Ações**: Link para ver detalhes no Mapa Cultural
 
 **Informações de Sincronização:**
 - **Última sincronização**: Tempo decorrido desde a última atualização
@@ -131,7 +134,7 @@ Isso irá:
 - Verifique se há dados no banco: acesse phpMyAdmin
 
 **Exportação falha:**
-- Verifique se há espaços na tabela
+- Verifique se há eventos na tabela
 - Tente sem filtros primeiro
 - Verifique permissões do navegador para downloads
 
@@ -144,9 +147,9 @@ Isso irá:
 
 Se você precisa integrar com outras aplicações:
 
-**Listar espaços:**
+**Listar eventos:**
 ```javascript
-fetch('/api/espacos.php?municipio=Fortaleza&page=1&limit=50')
+fetch('/api/eventos.php?municipio=Fortaleza&page=1&limit=50')
   .then(r => r.json())
   .then(data => console.log(data));
 ```
@@ -167,4 +170,4 @@ fetch('/api/sync.php', { method: 'POST' })
 
 ---
 
-**Precisa de ajuda?** Consulte o [README.md](README.md) principal ou abra uma issue no GitHub.
+**Precisa de ajuda?** Consulte o [README.md](../README.md) principal ou abra uma issue no GitHub.
