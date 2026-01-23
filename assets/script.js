@@ -133,6 +133,9 @@
       state.events = result.data;
       filterEvents();
       updateTableCount(result.pagination?.total || result.data.length);
+      
+      // Atualiza estatísticas dinâmicas após carregar eventos
+      updateDynamicStats();
     } catch (error) {
       console.error('Erro ao carregar eventos:', error);
       throw error;
@@ -218,13 +221,40 @@
   function updateStatsUI() {
     if (!state.stats) return;
 
-    const { geral, linguagens, municipios, last_sync } = state.stats;
+    const { geral } = state.stats;
 
-    // Atualiza cards (com fallback para 0)
+    // Total de eventos
     document.getElementById('totalEvents').textContent = (geral.total_eventos || 0).toLocaleString('pt-BR');
-    document.getElementById('totalMunicipios').textContent = (geral.total_municipios || 0).toLocaleString('pt-BR');
-    document.getElementById('totalLinguagens').textContent = (geral.total_linguagens || 0).toLocaleString('pt-BR');
-    document.getElementById('totalAccessibility').textContent = (geral.total_acessibilidade || 0).toLocaleString('pt-BR');
+  }
+
+  // Atualiza estatísticas dinâmicas (calculadas a partir dos eventos carregados)
+  function updateDynamicStats() {
+    if (!state.events || state.events.length === 0) return;
+    
+    // Total de espaços únicos
+    const espacosUnicos = new Set(state.events.map(e => e.local_nome).filter(Boolean)).size;
+    document.getElementById('totalEspacos').textContent = espacosUnicos.toLocaleString('pt-BR');
+    
+    // Eventos este mês
+    const now = new Date();
+    const mesAtual = now.getMonth();
+    const anoAtual = now.getFullYear();
+    const eventosEsteMes = state.events.filter(e => {
+      if (!e.data_inicio) return false;
+      const dataEvento = new Date(e.data_inicio);
+      return dataEvento.getMonth() === mesAtual && dataEvento.getFullYear() === anoAtual;
+    }).length;
+    document.getElementById('totalEsteMes').textContent = eventosEsteMes.toLocaleString('pt-BR');
+    
+    // Próximos eventos (a partir de hoje)
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const eventosProximos = state.events.filter(e => {
+      if (!e.data_inicio) return false;
+      const dataEvento = new Date(e.data_inicio);
+      return dataEvento >= hoje;
+    }).length;
+    document.getElementById('totalProximos').textContent = eventosProximos.toLocaleString('pt-BR');
   }
 
   // Atualiza informações de sincronização
