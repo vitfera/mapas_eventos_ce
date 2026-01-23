@@ -224,7 +224,10 @@
     const { geral } = state.stats;
 
     // Total de eventos
-    document.getElementById('totalEvents').textContent = (geral.total_eventos || 0).toLocaleString('pt-BR');
+    const totalEventsEl = document.getElementById('totalEvents');
+    if (totalEventsEl) {
+      totalEventsEl.textContent = (geral.total_eventos || 0).toLocaleString('pt-BR');
+    }
   }
 
   // Atualiza estatísticas dinâmicas (calculadas a partir dos eventos carregados)
@@ -233,7 +236,10 @@
     
     // Total de espaços únicos
     const espacosUnicos = new Set(state.events.map(e => e.local_nome).filter(Boolean)).size;
-    document.getElementById('totalEspacos').textContent = espacosUnicos.toLocaleString('pt-BR');
+    const totalEspacosEl = document.getElementById('totalEspacos');
+    if (totalEspacosEl) {
+      totalEspacosEl.textContent = espacosUnicos.toLocaleString('pt-BR');
+    }
     
     // Eventos este mês
     const now = new Date();
@@ -244,7 +250,10 @@
       const dataEvento = new Date(e.data_inicio);
       return dataEvento.getMonth() === mesAtual && dataEvento.getFullYear() === anoAtual;
     }).length;
-    document.getElementById('totalEsteMes').textContent = eventosEsteMes.toLocaleString('pt-BR');
+    const totalEsteMesEl = document.getElementById('totalEsteMes');
+    if (totalEsteMesEl) {
+      totalEsteMesEl.textContent = eventosEsteMes.toLocaleString('pt-BR');
+    }
     
     // Próximos eventos (a partir de hoje)
     const hoje = new Date();
@@ -254,7 +263,10 @@
       const dataEvento = new Date(e.data_inicio);
       return dataEvento >= hoje;
     }).length;
-    document.getElementById('totalProximos').textContent = eventosProximos.toLocaleString('pt-BR');
+    const totalProximosEl = document.getElementById('totalProximos');
+    if (totalProximosEl) {
+      totalProximosEl.textContent = eventosProximos.toLocaleString('pt-BR');
+    }
   }
 
   // Atualiza informações de sincronização
