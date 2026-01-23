@@ -18,12 +18,9 @@ try {
     $municipio = $_GET['municipio'] ?? null;
     $linguagem = $_GET['linguagem'] ?? null;
     $periodo = $_GET['periodo'] ?? 'todos'; // futuros, passados, todos
-    $page = max(1, (int)($_GET['page'] ?? 1));
-    $limit = min(100, max(10, (int)($_GET['limit'] ?? 50)));
-    $offset = ($page - 1) * $limit;
     
     // Chave de cache
-    $cacheKey = "eventos:" . md5(json_encode(['municipio' => $municipio, 'linguagem' => $linguagem, 'periodo' => $periodo, 'page' => $page, 'limit' => $limit]));
+    $cacheKey = "eventos:" . md5(json_encode(['municipio' => $municipio, 'linguagem' => $linguagem, 'periodo' => $periodo]));
     
     // Tenta buscar do cache
     if ($cache->isConnected()) {
@@ -67,15 +64,13 @@ try {
         $sql .= " WHERE " . implode(" AND ", $where);
     }
     
-    $sql .= " GROUP BY e.id ORDER BY e.nome ASC LIMIT :limit OFFSET :offset";
+    $sql .= " GROUP BY e.id ORDER BY e.data_inicio DESC";
     
     $stmt = $db->prepare($sql);
     
     foreach ($params as $key => $value) {
         $stmt->bindValue(":$key", $value);
     }
-    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
     
     $stmt->execute();
     $eventos = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -102,10 +97,7 @@ try {
         'success' => true,
         'data' => $eventos,
         'pagination' => [
-            'page' => $page,
-            'limit' => $limit,
-            'total' => (int)$total,
-            'pages' => ceil($total / $limit)
+            'total' => (int)$total
         ]
     ];
     

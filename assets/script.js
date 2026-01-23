@@ -7,8 +7,6 @@ const state = {
     municipio: '',
     linguagem: ''
   },
-  currentPage: 1,
-  itemsPerPage: 100,
   sort: {
     field: 'data_inicio',
     direction: 'desc'
@@ -100,8 +98,6 @@ async function loadStats() {
 async function loadEvents() {
   try {
     const params = new URLSearchParams({
-      page: state.currentPage,
-      limit: state.itemsPerPage,
       _t: Date.now()
     });
 
