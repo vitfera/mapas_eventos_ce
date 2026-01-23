@@ -8,7 +8,11 @@ const state = {
     linguagem: ''
   },
   currentPage: 1,
-  itemsPerPage: 100
+  itemsPerPage: 100,
+  sort: {
+    field: 'data_inicio',
+    direction: 'desc'
+  }
 };
 
 // Configuração da API
@@ -48,6 +52,14 @@ function initializeEventListeners() {
       loadEvents();
     });
   }
+
+  // Event listeners para ordenação de colunas
+  document.querySelectorAll('[data-sort]').forEach(button => {
+    button.addEventListener('click', (e) => {
+      const field = e.currentTarget.dataset.sort;
+      handleSort(field);
+    });
+  });
 }
 
 // Carrega dados iniciais
@@ -281,7 +293,7 @@ function updateTable() {
   if (state.filteredEvents.length === 0) {
     tableBody.innerHTML = `
       <tr>
-        <td colspan="5" class="px-6 py-12 text-center text-muted-foreground">
+        <td colspan="7" class="px-6 py-12 text-center text-muted-foreground">
           Nenhum evento encontrado
         </td>
       </tr>
@@ -289,7 +301,10 @@ function updateTable() {
     return;
   }
 
-  tableBody.innerHTML = state.filteredEvents
+  // Aplicar ordenação
+  const sortedEvents = sortEvents([...state.filteredEvents]);
+
+  tableBody.innerHTML = sortedEvents
     .map(event => {
       const linguagens = event.linguagens ? event.linguagens.split(',').map(l => l.trim()) : [];
       
@@ -421,4 +436,77 @@ function showError(message) {
   // Implementação simples - pode ser melhorada com toast/notification library
   console.error('❌ Erro:', message);
   alert(message);
+}
+
+// Manipula ordenação de colunas
+function handleSort(field) {
+  // Se clicar na mesma coluna, inverte a direção
+  if (state.sort.field === field) {
+    state.sort.direction = state.sort.direction === 'asc' ? 'desc' : 'asc';
+  } else {
+    // Nova coluna, sempre começa em ordem ascendente
+    state.sort.field = field;
+    state.sort.direction = 'asc';
+  }
+  
+  updateTable();
+  updateSortIndicators();
+}
+
+// Ordena eventos baseado no estado atual
+function sortEvents(events) {
+  const { field, direction } = state.sort;
+  
+  return events.sort((a, b) => {
+    let aVal = a[field];
+    let bVal = b[field];
+    
+    // Tratamento especial para valores nulos/undefined
+    if (aVal === null || aVal === undefined) aVal = '';
+    if (bVal === null || bVal === undefined) bVal = '';
+    
+    // Conversão para string se necessário
+    if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+    if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+    
+    // Comparação
+    let comparison = 0;
+    if (aVal > bVal) comparison = 1;
+    if (aVal < bVal) comparison = -1;
+    
+    // Aplica direção
+    return direction === 'asc' ? comparison : -comparison;
+  });
+}
+
+// Atualiza indicadores visuais de ordenação
+function updateSortIndicators() {
+  // Remove indicadores antigos
+  document.querySelectorAll('[data-sort]').forEach(button => {
+    const svg = button.querySelector('svg');
+    button.classList.remove('text-primary');
+    if (svg) {
+      svg.classList.remove('opacity-100', 'text-primary');
+      svg.classList.add('opacity-30');
+    }
+  });
+  
+  // Adiciona indicador na coluna ativa
+  const activeButton = document.querySelector(`[data-sort="${state.sort.field}"]`);
+  if (activeButton) {
+    const svg = activeButton.querySelector('svg');
+    activeButton.classList.add('text-primary');
+    if (svg) {
+      svg.classList.remove('opacity-30');
+      svg.classList.add('opacity-100', 'text-primary');
+      
+      // Rotaciona ícone baseado na direção
+      svg.style.transition = 'transform 0.2s ease';
+      if (state.sort.direction === 'asc') {
+        svg.style.transform = 'rotate(180deg)';
+      } else {
+        svg.style.transform = 'rotate(0deg)';
+      }
+    }
+  }
 }
