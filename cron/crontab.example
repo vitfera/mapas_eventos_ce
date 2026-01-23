@@ -1,0 +1,10 @@
+# Configurar crontab para sincronização automática
+
+## Sincronizar a cada 6 horas
+0 */6 * * * cd /var/www/html && php cron/sync_eventos.php >> /var/log/sync_eventos.log 2>&1
+
+## Sincronizar diariamente às 3h da manhã
+# 0 3 * * * cd /var/www/html && php cron/sync_eventos.php >> /var/log/sync_eventos.log 2>&1
+
+## Sincronizar semanalmente (domingo às 2h)
+# 0 2 * * 0 cd /var/www/html && php cron/sync_eventos.php >> /var/log/sync_eventos.log 2>&1
