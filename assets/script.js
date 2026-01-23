@@ -149,9 +149,15 @@
       filtered = filtered.filter(e => {
         const id = (e.external_id || '').toString().toLowerCase();
         const nome = (e.nome || '').toLowerCase();
-        const data = (e.data_inicio || '').toLowerCase();
         
-        return id.includes(searchTerm) || nome.includes(searchTerm) || data.includes(searchTerm);
+        // Formata data para dd/MM/yyyy para permitir busca no formato brasileiro
+        let dataBr = '';
+        if (e.data_inicio) {
+          const dataObj = new Date(e.data_inicio);
+          dataBr = dataObj.toLocaleDateString('pt-BR').toLowerCase();
+        }
+        
+        return id.includes(searchTerm) || nome.includes(searchTerm) || dataBr.includes(searchTerm);
       });
     }
 
