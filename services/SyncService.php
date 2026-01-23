@@ -129,15 +129,37 @@ class SyncService {
             $municipio = 'Não informado';
         }
         
-        // Processa datas do evento
+        // Processa datas e local do evento através das occurrences
         $dataInicio = null;
         $dataFim = null;
+        $horaInicio = null;
+        $horaFim = null;
+        $localNome = null;
+        
         if (!empty($apiEvent['occurrences']) && is_array($apiEvent['occurrences'])) {
             $firstOccurrence = $apiEvent['occurrences'][0] ?? null;
-            if ($firstOccurrence) {
-                $dataInicio = $firstOccurrence['startsOn'] ?? null;
-                $dataFim = $firstOccurrence['endsOn'] ?? $firstOccurrence['startsOn'] ?? null;
+            
+            if ($firstOccurrence && is_array($firstOccurrence)) {
+                // Os dados estão dentro do objeto 'rule'
+                $rule = $firstOccurrence['rule'] ?? [];
+                
+                $dataInicio = $rule['startsOn'] ?? null;
+                // Se 'until' estiver vazio, usa startsOn como data_fim
+                $dataFim = !empty($rule['until']) ? $rule['until'] : ($rule['startsOn'] ?? null);
+                $horaInicio = $rule['startsAt'] ?? null;
+                $horaFim = $rule['endsAt'] ?? null;
+                
+                // Extrai nome do espaço
+                if (isset($firstOccurrence['space']['name'])) {
+                    $localNome = $firstOccurrence['space']['name'];
+                }
             }
+        }
+        
+        // Processa tags
+        $tags = null;
+        if (!empty($apiEvent['terms']['tag']) && is_array($apiEvent['terms']['tag'])) {
+            $tags = implode(', ', $apiEvent['terms']['tag']);
         }
         
         return [
@@ -145,6 +167,7 @@ class SyncService {
             'nome' => $truncate($nome, 255),
             'descricao' => $apiEvent['shortDescription'] ?? $apiEvent['longDescription'] ?? null,
             'local' => $truncate($apiEvent['location']['address'] ?? null, 255),
+            'local_nome' => $truncate($localNome, 255),
             'municipio' => $truncate($municipio, 100),
             'cep' => $truncate($apiEvent['En_CEP'] ?? null, 20),
             'latitude' => !empty($apiEvent['location']['latitude']) ? (float)$apiEvent['location']['latitude'] : null,
@@ -154,8 +177,11 @@ class SyncService {
             'site' => $truncate($apiEvent['site'] ?? null, 255),
             'acessibilidade' => !empty($apiEvent['acessibilidade']) ? 1 : 0,
             'classificacao_etaria' => $truncate($apiEvent['classificacaoEtaria'] ?? null, 50),
+            'tags' => $tags,
             'data_inicio' => $dataInicio,
-            'data_fim' => $dataFim
+            'data_fim' => $dataFim,
+            'hora_inicio' => $horaInicio,
+            'hora_fim' => $horaFim
         ];
     }
     
@@ -166,12 +192,12 @@ class SyncService {
         // Remove chaves que não devem estar no INSERT
         unset($data['id']);
         
-        $sql = "INSERT INTO eventos (external_id, nome, descricao, local, municipio, cep, 
-                latitude, longitude, telefone, email, site, acessibilidade, classificacao_etaria,
-                data_inicio, data_fim, created_at, updated_at)
-                VALUES (:external_id, :nome, :descricao, :local, :municipio, :cep,
+        $sql = "INSERT INTO eventos (external_id, nome, descricao, local, local_nome, municipio, cep, 
+                latitude, longitude, telefone, email, site, acessibilidade, classificacao_etaria, tags,
+                data_inicio, data_fim, hora_inicio, hora_fim, created_at, updated_at)
+                VALUES (:external_id, :nome, :descricao, :local, :local_nome, :municipio, :cep,
                 :latitude, :longitude, :telefone, :email, :site, :acessibilidade, 
-                :classificacao_etaria, :data_inicio, :data_fim, NOW(), NOW())";
+                :classificacao_etaria, :tags, :data_inicio, :data_fim, :hora_inicio, :hora_fim, NOW(), NOW())";
         
         $stmt = $this->db->prepare($sql);
         
@@ -180,6 +206,7 @@ class SyncService {
         $stmt->bindValue(':nome', $data['nome'], PDO::PARAM_STR);
         $stmt->bindValue(':descricao', $data['descricao'], $data['descricao'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
         $stmt->bindValue(':local', $data['local'], $data['local'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+        $stmt->bindValue(':local_nome', $data['local_nome'], $data['local_nome'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
         $stmt->bindValue(':municipio', $data['municipio'], $data['municipio'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
         $stmt->bindValue(':cep', $data['cep'], $data['cep'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
         $stmt->bindValue(':latitude', $data['latitude'], $data['latitude'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
@@ -189,8 +216,11 @@ class SyncService {
         $stmt->bindValue(':site', $data['site'], $data['site'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
         $stmt->bindValue(':acessibilidade', $data['acessibilidade'], PDO::PARAM_INT);
         $stmt->bindValue(':classificacao_etaria', $data['classificacao_etaria'], $data['classificacao_etaria'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+        $stmt->bindValue(':tags', $data['tags'], $data['tags'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
         $stmt->bindValue(':data_inicio', $data['data_inicio'], $data['data_inicio'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
         $stmt->bindValue(':data_fim', $data['data_fim'], $data['data_fim'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+        $stmt->bindValue(':hora_inicio', $data['hora_inicio'], $data['hora_inicio'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+        $stmt->bindValue(':hora_fim', $data['hora_fim'], $data['hora_fim'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
         
         $stmt->execute();
         
@@ -205,6 +235,7 @@ class SyncService {
                 nome = :nome,
                 descricao = :descricao,
                 local = :local,
+                local_nome = :local_nome,
                 municipio = :municipio,
                 cep = :cep,
                 latitude = :latitude,
@@ -214,8 +245,11 @@ class SyncService {
                 site = :site,
                 acessibilidade = :acessibilidade,
                 classificacao_etaria = :classificacao_etaria,
+                tags = :tags,
                 data_inicio = :data_inicio,
                 data_fim = :data_fim,
+                hora_inicio = :hora_inicio,
+                hora_fim = :hora_fim,
                 updated_at = NOW()
                 WHERE id = :id";
         
@@ -226,6 +260,7 @@ class SyncService {
         $stmt->bindValue(':nome', $data['nome'], PDO::PARAM_STR);
         $stmt->bindValue(':descricao', $data['descricao'], $data['descricao'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
         $stmt->bindValue(':local', $data['local'], $data['local'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+        $stmt->bindValue(':local_nome', $data['local_nome'], $data['local_nome'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
         $stmt->bindValue(':municipio', $data['municipio'], $data['municipio'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
         $stmt->bindValue(':cep', $data['cep'], $data['cep'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
         $stmt->bindValue(':latitude', $data['latitude'], $data['latitude'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
@@ -235,8 +270,11 @@ class SyncService {
         $stmt->bindValue(':site', $data['site'], $data['site'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
         $stmt->bindValue(':acessibilidade', $data['acessibilidade'], PDO::PARAM_INT);
         $stmt->bindValue(':classificacao_etaria', $data['classificacao_etaria'], $data['classificacao_etaria'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+        $stmt->bindValue(':tags', $data['tags'], $data['tags'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
         $stmt->bindValue(':data_inicio', $data['data_inicio'], $data['data_inicio'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
         $stmt->bindValue(':data_fim', $data['data_fim'], $data['data_fim'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+        $stmt->bindValue(':hora_inicio', $data['hora_inicio'], $data['hora_inicio'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+        $stmt->bindValue(':hora_fim', $data['hora_fim'], $data['hora_fim'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
         
         $stmt->execute();
     }

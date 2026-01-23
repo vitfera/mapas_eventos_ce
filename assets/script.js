@@ -291,33 +291,49 @@ function updateTable() {
 
   tableBody.innerHTML = state.filteredEvents
     .map(event => {
-      const initials = event.nome ? event.nome.substring(0, 2).toUpperCase() : 'EV';
       const linguagens = event.linguagens ? event.linguagens.split(',').map(l => l.trim()) : [];
-      const dataInicio = event.data_inicio ? new Date(event.data_inicio).toLocaleDateString('pt-BR') : '-';
+      
+      // Formatar data
+      let dataFormatada = '-';
+      if (event.data_inicio) {
+        const dataObj = new Date(event.data_inicio);
+        dataFormatada = dataObj.toLocaleDateString('pt-BR');
+      }
+      
+      // Usar hora_inicio se disponível, senão extrair de data_inicio
+      let horaFormatada = '-';
+      if (event.hora_inicio) {
+        horaFormatada = event.hora_inicio.substring(0, 5); // HH:MM
+      } else if (event.data_inicio) {
+        const dataObj = new Date(event.data_inicio);
+        horaFormatada = dataObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      }
+      
+      // Usar local_nome se disponível, senão local
+      const localNome = event.local_nome || event.local || '-';
+      
+      // Usar tags se disponível, senão linguagens
+      const tags = event.tags ? event.tags.split(',').map(t => t.trim()) : linguagens;
       
       return `
       <tr class="hover:bg-muted/20 transition-colors">
         <td class="px-6 py-4">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-semibold">
-              ${initials}
-            </div>
-            <div>
-              <p class="font-medium text-foreground">${event.nome || 'Sem nome'}</p>
-              <p class="text-xs text-muted-foreground">ID: ${event.id}</p>
-            </div>
-          </div>
+          <span class="text-sm font-mono text-muted-foreground">#${event.external_id || event.id}</span>
         </td>
-        <td class="px-6 py-4 text-sm text-foreground">${event.municipio || '-'}</td>
         <td class="px-6 py-4">
-          ${linguagens.length > 0 ? linguagens.slice(0, 2).map(ling => `
+          <p class="font-medium text-foreground">${event.nome || 'Sem nome'}</p>
+        </td>
+        <td class="px-6 py-4 text-sm text-foreground">${dataFormatada}</td>
+        <td class="px-6 py-4 text-sm text-foreground">${horaFormatada}</td>
+        <td class="px-6 py-4 text-sm text-foreground">${localNome}</td>
+        <td class="px-6 py-4">
+          ${tags.length > 0 ? tags.slice(0, 2).map(tag => `
             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary mb-1 mr-1">
-              ${ling}
+              ${tag}
             </span>
           `).join('') : '<span class="text-xs text-muted-foreground">-</span>'}
-          ${linguagens.length > 2 ? `<span class="text-xs text-muted-foreground">+${linguagens.length - 2}</span>` : ''}
+          ${tags.length > 2 ? `<span class="text-xs text-muted-foreground">+${tags.length - 2}</span>` : ''}
         </td>
-        <td class="px-6 py-4 text-sm text-foreground">${dataInicio}</td>
         <td class="px-6 py-4">
           <a href="https://mapacultural.secult.ce.gov.br/evento/${event.external_id}" target="_blank" class="text-primary hover:underline text-sm font-medium">
             Ver detalhes

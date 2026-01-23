@@ -23,7 +23,7 @@ class MapaCulturalAPI {
      */
     public function getEvents($params = []) {
         $defaultParams = [
-            '@select' => 'id,name,shortDescription,longDescription,location,En_Municipio,En_Estado,En_CEP,acessibilidade,site,emailPublico,telefonePublico,classificacaoEtaria,terms,occurrences,seals',
+            '@select' => 'id,name,shortDescription,longDescription,location,En_Municipio,En_Estado,En_CEP,acessibilidade,site,emailPublico,telefonePublico,classificacaoEtaria,terms,seals,occurrences.{id,space.{name},rule,startsOn,startsAt,endsOn,endsAt,frequency,description}',
             '@files' => '(avatar.avatarMedium,avatar.avatarBig):url',
             '@order' => 'name ASC',
             '@seals' => '32'  // Filtrar apenas eventos com selo 32
