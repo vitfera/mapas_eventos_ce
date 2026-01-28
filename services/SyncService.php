@@ -12,11 +12,22 @@ class SyncService {
     private $cache;
     private $api;
     private $syncLogId;
+    private $logFile;
     
     public function __construct() {
         $this->db = Database::getInstance()->getConnection();
         $this->cache = RedisCache::getInstance();
         $this->api = new MapaCulturalAPI();
+        $this->logFile = __DIR__ . '/../logs/sync.log';
+    }
+    
+    /**
+     * Escreve mensagem no arquivo de log
+     */
+    private function writeLog($message) {
+        $timestamp = date('Y-m-d H:i:s');
+        $logMessage = "[{$timestamp}] {$message}\n";
+        file_put_contents($this->logFile, $logMessage, FILE_APPEND);
     }
     
     /**
@@ -36,10 +47,18 @@ class SyncService {
                 'erros' => 0
             ];
             
+            $this->writeLog("========================================");
+            $this->writeLog("INÍCIO DA SINCRONIZAÇÃO");
+            $this->writeLog("========================================");
+            $this->writeLog("Iniciando busca de eventos da API...");
+            
             // Busca todos os eventos da API
             $events = $this->api->getAllEvents(function($page, $pageCount, $total) {
-                echo "Página $page: $pageCount eventos | Total: $total\n";
+                $this->writeLog("Página $page: $pageCount eventos | Total: $total");
             });
+            
+            $this->writeLog("Total de eventos encontrados: " . count($events));
+            $this->writeLog("Iniciando processamento dos eventos...");
             
             $stats['total'] = count($events);
             
@@ -66,9 +85,19 @@ class SyncService {
             // Limpa cache
             $this->invalidateCache();
             
+            $this->writeLog("\n====== RESUMO DA SINCRONIZAÇÃO ======");
+            $this->writeLog("Total de eventos: {$stats['total']}");
+            $this->writeLog("Novos: {$stats['novos']}");
+            $this->writeLog("Atualizados: {$stats['atualizados']}");
+            $this->writeLog("Erros: {$stats['erros']}");
+            $this->writeLog("======================================");
+            $this->writeLog("Sincronização concluída com sucesso!");
+            $this->writeLog("\n");
+            
             return $stats;
             
         } catch (Exception $e) {
+            $this->writeLog("ERRO NA SINCRONIZAÇÃO: " . $e->getMessage());
             $this->finalizeSyncLog('erro', null, $e->getMessage());
             throw $e;
         }

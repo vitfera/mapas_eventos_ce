@@ -369,7 +369,7 @@
 
     const chartContainer = document.getElementById('chartContainer');
     if (!chartContainer) {
-      console.error('chartContainer não encontrado');
+      // chartContainer não existe nesta página, apenas retorna sem erro
       return;
     }
 

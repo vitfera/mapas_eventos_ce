@@ -34,7 +34,8 @@ try {
     echo json_encode([
         'success' => true,
         'message' => 'Sincronização concluída com sucesso',
-        'stats' => $stats
+        'data' => $stats,
+        'timestamp' => date('Y-m-d H:i:s')
     ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
     
 } catch (Exception $e) {
