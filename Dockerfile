@@ -24,6 +24,9 @@ WORKDIR /var/www/html
 # Copiar arquivos da aplicação
 COPY . /var/www/html/
 
+# Copiar configuração PHP customizada
+COPY php.ini /usr/local/etc/php/conf.d/custom.ini
+
 # Permissões
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html
