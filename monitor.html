@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor de Sincronização - Mapa Cultural CE</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: #252526;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            font-size: 24px;
+            color: #4ec9b0;
+            margin-bottom: 10px;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .status-idle {
+            background: #6c757d;
+            color: white;
+        }
+
+        .status-running {
+            background: #ff9800;
+            color: white;
+            animation: pulse 2s infinite;
+        }
+
+        .status-success {
+            background: #4caf50;
+            color: white;
+        }
+
+        .status-error {
+            background: #f44336;
+            color: white;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s ease;
+            font-family: inherit;
+        }
+
+        button:hover {
+            background: #1177bb;
+        }
+
+        button:active {
+            background: #0d5689;
+        }
+
+        button.danger {
+            background: #d32f2f;
+        }
+
+        button.danger:hover {
+            background: #f44336;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #d4d4d4;
+            font-size: 14px;
+        }
+
+        .checkbox-container input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .log-container {
+            background: #1e1e1e;
+            border: 1px solid #3c3c3c;
+            border-radius: 8px;
+            padding: 0;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .log-header {
+            background: #2d2d30;
+            padding: 12px 20px;
+            border-bottom: 1px solid #3c3c3c;
+            font-size: 14px;
+            color: #cccccc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .log-info {
+            font-size: 12px;
+            color: #858585;
+        }
+
+        .log-output {
+            padding: 20px;
+            height: 600px;
+            overflow-y: auto;
+            font-size: 13px;
+            background: #1e1e1e;
+        }
+
+        .log-output::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        .log-output::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+
+        .log-output::-webkit-scrollbar-thumb {
+            background: #424242;
+            border-radius: 6px;
+        }
+
+        .log-output::-webkit-scrollbar-thumb:hover {
+            background: #4e4e4e;
+        }
+
+        .log-line {
+            margin-bottom: 4px;
+            padding: 2px 0;
+            word-wrap: break-word;
+        }
+
+        .log-line.error {
+            color: #f48771;
+            font-weight: 500;
+        }
+
+        .log-line.success {
+            color: #4ec9b0;
+            font-weight: 500;
+        }
+
+        .log-line.info {
+            color: #569cd6;
+        }
+
+        .log-line.warning {
+            color: #dcdcaa;
+        }
+
+        .log-line.header {
+            color: #c586c0;
+            font-weight: bold;
+            margin: 8px 0;
+        }
+
+        .log-line.separator {
+            color: #608b4e;
+            margin: 4px 0;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #858585;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #858585;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #3c3c3c;
+            border-top-color: #0e639c;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 20px;
+            padding: 20px;
+            color: #858585;
+            font-size: 12px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: #252526;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #0e639c;
+        }
+
+        .stat-label {
+            color: #858585;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            color: #4ec9b0;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            .status-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .controls {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+
+            .log-output {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🗺️ Monitor de Sincronização - Eventos Culturais</h1>
+            <div class="status-bar">
+                <div>
+                    <span class="status-badge status-idle" id="statusBadge">Aguardando...</span>
+                </div>
+                <div class="controls">
+                    <button onclick="loadLogs()">🔄 Atualizar Agora</button>
+                    <button class="danger" onclick="clearDisplay()">🗑️ Limpar Visualização</button>
+                    <div class="checkbox-container">
+                        <input type="checkbox" id="autoRefresh" checked>
+                        <label for="autoRefresh">Auto-atualizar (5s)</label>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="stats" id="stats" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-label">Total de Eventos</div>
+                <div class="stat-value" id="statTotal">-</div>
+            </div>
+            <div class="stat-card" style="border-left-color: #4caf50;">
+                <div class="stat-label">Novos</div>
+                <div class="stat-value" id="statNovos">-</div>
+            </div>
+            <div class="stat-card" style="border-left-color: #ff9800;">
+                <div class="stat-label">Atualizados</div>
+                <div class="stat-value" id="statAtualizados">-</div>
+            </div>
+            <div class="stat-card" style="border-left-color: #f44336;">
+                <div class="stat-label">Erros</div>
+                <div class="stat-value" id="statErros">-</div>
+            </div>
+        </div>
+
+        <div class="log-container">
+            <div class="log-header">
+                <span>📄 logs/sync.log</span>
+                <span class="log-info" id="logInfo">Últimas 200 linhas</span>
+            </div>
+            <div class="log-output" id="logOutput">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div>Carregando logs...</div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>Monitor de Sincronização v1.0 | Mapa Cultural do Ceará</p>
+            <p>Atualizado automaticamente a cada 5 segundos</p>
+        </footer>
+    </div>
+
+    <script>
+        let autoRefreshInterval;
+        let lastLogContent = '';
+
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', function() {
+            loadLogs();
+            startAutoRefresh();
+            
+            // Listener para checkbox de auto-refresh
+            document.getElementById('autoRefresh').addEventListener('change', function() {
+                if (this.checked) {
+                    startAutoRefresh();
+                } else {
+                    stopAutoRefresh();
+                }
+            });
+        });
+
+        // Carregar logs da API
+        async function loadLogs() {
+            try {
+                const response = await fetch('/api/logs.php?lines=200', {
+                    cache: 'no-cache',
+                    headers: {
+                        'Cache-Control': 'no-cache'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayLogs(data.logs);
+                    updateStatus(data.logs);
+                    extractStats(data.logs);
+                    updateLogInfo(data.lineCount || 200);
+                } else {
+                    showError(data.message || 'Erro ao carregar logs');
+                }
+            } catch (error) {
+                console.error('Erro ao carregar logs:', error);
+                showError('Erro de conexão: ' + error.message);
+            }
+        }
+
+        // Exibir logs no terminal
+        function displayLogs(logs) {
+            const output = document.getElementById('logOutput');
+            
+            if (!logs || logs.trim() === '') {
+                output.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <div>Nenhum log disponível</div>
+                        <div style="margin-top: 10px; font-size: 12px;">Execute uma sincronização para ver os logs aqui</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Verificar se o conteúdo mudou
+            if (logs === lastLogContent) {
+                return; // Não atualizar se não houver mudanças
+            }
+            lastLogContent = logs;
+
+            const lines = logs.split('\n');
+            let html = '';
+
+            lines.forEach(line => {
+                if (!line.trim()) return;
+
+                let className = 'log-line';
+                
+                // Classificar linha por conteúdo
+                if (line.includes('====')) {
+                    className += ' separator';
+                } else if (line.includes('ERRO') || line.includes('ERROR') || line.includes('FALHA')) {
+                    className += ' error';
+                } else if (line.includes('SUCESSO') || line.includes('Concluída') || line.includes('concluída') || line.includes('✓')) {
+                    className += ' success';
+                } else if (line.includes('INÍCIO') || line.includes('RESUMO') || line.includes('===')) {
+                    className += ' header';
+                } else if (line.includes('Total:') || line.includes('Novos:') || line.includes('Atualizados:')) {
+                    className += ' info';
+                } else if (line.match(/^\[[\d\-: ]+\]/)) {
+                    className += ' info';
+                }
+
+                html += `<div class="${className}">${escapeHtml(line)}</div>`;
+            });
+
+            output.innerHTML = html;
+            
+            // Auto-scroll para o final
+            output.scrollTop = output.scrollHeight;
+        }
+
+        // Atualizar status baseado nos logs
+        function updateStatus(logs) {
+            const badge = document.getElementById('statusBadge');
+            
+            if (!logs || logs.trim() === '') {
+                badge.textContent = 'Aguardando...';
+                badge.className = 'status-badge status-idle';
+                return;
+            }
+
+            if (logs.includes('INÍCIO DA SINCRONIZAÇÃO') && !logs.includes('concluída')) {
+                badge.textContent = '🔄 Sincronizando...';
+                badge.className = 'status-badge status-running';
+            } else if (logs.includes('concluída com sucesso') || logs.includes('Sincronização concluída')) {
+                badge.textContent = '✓ Concluído';
+                badge.className = 'status-badge status-success';
+            } else if (logs.includes('ERRO NA SINCRONIZAÇÃO') || logs.includes('FALHA')) {
+                badge.textContent = '✗ Erro';
+                badge.className = 'status-badge status-error';
+            } else {
+                badge.textContent = 'Aguardando...';
+                badge.className = 'status-badge status-idle';
+            }
+        }
+
+        // Extrair estatísticas dos logs
+        function extractStats(logs) {
+            if (!logs) return;
+
+            const statsDiv = document.getElementById('stats');
+            const lines = logs.split('\n');
+            
+            let total = '-', novos = '-', atualizados = '-', erros = '-';
+            let foundStats = false;
+
+            lines.forEach(line => {
+                const totalMatch = line.match(/Total de eventos:\s*(\d+)/i);
+                const novosMatch = line.match(/Novos:\s*(\d+)/i);
+                const atualizadosMatch = line.match(/Atualizados:\s*(\d+)/i);
+                const errosMatch = line.match(/Erros:\s*(\d+)/i);
+
+                if (totalMatch) {
+                    total = totalMatch[1];
+                    foundStats = true;
+                }
+                if (novosMatch) {
+                    novos = novosMatch[1];
+                    foundStats = true;
+                }
+                if (atualizadosMatch) {
+                    atualizados = atualizadosMatch[1];
+                    foundStats = true;
+                }
+                if (errosMatch) {
+                    erros = errosMatch[1];
+                    foundStats = true;
+                }
+            });
+
+            if (foundStats) {
+                statsDiv.style.display = 'grid';
+                document.getElementById('statTotal').textContent = total;
+                document.getElementById('statNovos').textContent = novos;
+                document.getElementById('statAtualizados').textContent = atualizados;
+                document.getElementById('statErros').textContent = erros;
+            } else {
+                statsDiv.style.display = 'none';
+            }
+        }
+
+        // Atualizar informação de linhas
+        function updateLogInfo(lineCount) {
+            document.getElementById('logInfo').textContent = `Últimas ${lineCount} linhas`;
+        }
+
+        // Mostrar erro
+        function showError(message) {
+            const output = document.getElementById('logOutput');
+            output.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">⚠️</div>
+                    <div class="log-line error">${escapeHtml(message)}</div>
+                </div>
+            `;
+        }
+
+        // Limpar visualização
+        function clearDisplay() {
+            const output = document.getElementById('logOutput');
+            output.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">🧹</div>
+                    <div>Visualização limpa</div>
+                    <div style="margin-top: 10px; font-size: 12px;">Clique em "Atualizar Agora" para recarregar</div>
+                </div>
+            `;
+            lastLogContent = '';
+            document.getElementById('stats').style.display = 'none';
+        }
+
+        // Iniciar auto-refresh
+        function startAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+            autoRefreshInterval = setInterval(loadLogs, 5000);
+        }
+
+        // Parar auto-refresh
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

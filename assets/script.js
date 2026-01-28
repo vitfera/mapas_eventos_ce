@@ -447,7 +447,7 @@
         return `
         <tr class="hover:bg-muted/20 transition-colors">
           <td class="px-6 py-4">
-            <span class="text-sm font-mono text-muted-foreground">#${event.external_id || event.id}</span>
+            <span class="text-sm font-mono text-muted-foreground">${event.external_id || event.id}</span>
           </td>
           <td class="px-6 py-4">
             <p class="font-medium text-foreground">${event.nome || 'Sem nome'}</p>
