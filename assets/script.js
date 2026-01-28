@@ -7,7 +7,9 @@
     filters: {
       municipio: '',
       linguagem: '',
-      search: ''
+      search: '',
+      dataInicial: '',
+      dataFinal: ''
     },
     sort: {
       field: 'data_inicio',
@@ -31,6 +33,8 @@
     const filterMunicipio = document.getElementById('filterMunicipio');
     const filterLinguagem = document.getElementById('filterLinguagem');
     const searchInput = document.getElementById('searchInput');
+    const filterDataInicial = document.getElementById('filterDataInicial');
+    const filterDataFinal = document.getElementById('filterDataFinal');
 
     if (syncBtn) {
       syncBtn.addEventListener('click', syncData);
@@ -57,6 +61,20 @@
     if (searchInput) {
       searchInput.addEventListener('input', (e) => {
         state.filters.search = e.target.value;
+        filterEvents();
+      });
+    }
+
+    if (filterDataInicial) {
+      filterDataInicial.addEventListener('change', (e) => {
+        state.filters.dataInicial = e.target.value;
+        filterEvents();
+      });
+    }
+
+    if (filterDataFinal) {
+      filterDataFinal.addEventListener('change', (e) => {
+        state.filters.dataFinal = e.target.value;
         filterEvents();
       });
     }
@@ -161,6 +179,29 @@
         }
         
         return id.includes(searchTerm) || nome.includes(searchTerm) || dataBr.includes(searchTerm);
+      });
+    }
+
+    // Filtro por data inicial
+    if (state.filters.dataInicial) {
+      const dataInicial = new Date(state.filters.dataInicial);
+      dataInicial.setHours(0, 0, 0, 0);
+      filtered = filtered.filter(e => {
+        if (!e.data_inicio) return false;
+        const dataEvento = new Date(e.data_inicio);
+        dataEvento.setHours(0, 0, 0, 0);
+        return dataEvento >= dataInicial;
+      });
+    }
+
+    // Filtro por data final
+    if (state.filters.dataFinal) {
+      const dataFinal = new Date(state.filters.dataFinal);
+      dataFinal.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(e => {
+        if (!e.data_inicio) return false;
+        const dataEvento = new Date(e.data_inicio);
+        return dataEvento <= dataFinal;
       });
     }
 
@@ -472,9 +513,8 @@
       return;
     }
 
-    const headers = ['ID', 'ID Externo', 'Nome', 'Município', 'Linguagens', 'Data Início', 'Data Fim'];
+    const headers = ['ID Mapas', 'Nome', 'Município', 'Linguagens', 'Data Início', 'Data Fim'];
     const rows = state.filteredEvents.map(event => [
-      event.id,
       event.external_id || '',
       `"${(event.nome || '').replace(/"/g, '""')}"`,
       event.municipio || '',
