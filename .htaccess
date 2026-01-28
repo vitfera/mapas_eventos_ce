@@ -1,7 +1,11 @@
-<IfModule mod_reqtimeout.c>
-  RequestReadTimeout header=600,MinRate=500 body=600,MinRate=500
-</IfModule>
+# Aumentar timeout do PHP (aplicado via php.ini)
+# TimeOut e ProxyTimeout devem ser configurados no Apache global
 
-# Aumentar timeout do proxy
-TimeOut 600
-ProxyTimeout 600
+# Habilitar rewrite
+RewriteEngine On
+
+# Cache control para assets
+<FilesMatch "\.(js|css)$">
+  Header set Cache-Control "no-cache, must-revalidate"
+</FilesMatch>
+

@@ -16,7 +16,9 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Configurar Apache
-RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
+RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf && \
+    echo "Timeout 600" >> /etc/apache2/apache2.conf && \
+    echo "ProxyTimeout 600" >> /etc/apache2/apache2.conf
 
 # Definir diretório de trabalho
 WORKDIR /var/www/html
