@@ -1,0 +1,7 @@
+<IfModule mod_reqtimeout.c>
+  RequestReadTimeout header=600,MinRate=500 body=600,MinRate=500
+</IfModule>
+
+# Aumentar timeout do proxy
+TimeOut 600
+ProxyTimeout 600
