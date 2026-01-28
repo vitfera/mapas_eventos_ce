@@ -5,6 +5,7 @@
     filteredEvents: [],
     stats: null,
     filters: {
+      selo: '',
       municipio: '',
       linguagem: '',
       search: '',
@@ -30,6 +31,7 @@
   function initializeEventListeners() {
     const syncBtn = document.getElementById('syncBtn');
     const exportBtn = document.getElementById('exportBtn');
+    const filterSelo = document.getElementById('filterSelo');
     const filterMunicipio = document.getElementById('filterMunicipio');
     const filterLinguagem = document.getElementById('filterLinguagem');
     const searchInput = document.getElementById('searchInput');
@@ -42,6 +44,13 @@
 
     if (exportBtn) {
       exportBtn.addEventListener('click', exportToCSV);
+    }
+
+    if (filterSelo) {
+      filterSelo.addEventListener('change', (e) => {
+        state.filters.selo = e.target.value;
+        loadEvents();
+      });
     }
 
     if (filterMunicipio) {
@@ -93,6 +102,7 @@
     try {
       await Promise.all([
         loadStats(),
+        loadSeals(),
         loadEvents()
       ]);
     } catch (error) {
@@ -119,6 +129,24 @@
     } catch (error) {
       console.error('Erro ao carregar estatísticas:', error);
       throw error;
+    }
+  }
+
+  // Carrega selos disponíveis da API
+  async function loadSeals() {
+    try {
+      const response = await fetch(`${API_BASE}/selos.php?_t=${Date.now()}`);
+      if (!response.ok) throw new Error('Erro ao carregar selos');
+      
+      const result = await response.json();
+      if (!result.success) throw new Error(result.message || 'Erro desconhecido');
+      
+      console.log('Selos carregados:', result);
+      state.seals = result.data;
+      updateSealsFilter();
+    } catch (error) {
+      console.error('Erro ao carregar selos:', error);
+      // Não bloqueia a aplicação se falhar
     }
   }
 
@@ -502,6 +530,19 @@
       filterLinguagem.innerHTML = `
         <option value="">Todas as linguagens (${linguagens.length})</option>
         ${linguagens.map(l => `<option value="${l.linguagem}">${l.linguagem} (${l.total})</option>`).join('')}
+      `;
+    }
+  }
+
+  // Atualiza filtro de selos
+  function updateSealsFilter() {
+    const filterSelo = document.getElementById('filterSelo');
+    
+    if (filterSelo && state.seals) {
+      const seals = state.seals.sort((a, b) => a.name.localeCompare(b.name));
+      filterSelo.innerHTML = `
+        <option value="">Todos os selos (${seals.length})</option>
+        ${seals.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
       `;
     }
   }

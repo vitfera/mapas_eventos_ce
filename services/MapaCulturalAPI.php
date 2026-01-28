@@ -25,9 +25,13 @@ class MapaCulturalAPI {
         $defaultParams = [
             '@select' => 'id,name,shortDescription,longDescription,location,En_Municipio,En_Estado,En_CEP,acessibilidade,site,emailPublico,telefonePublico,classificacaoEtaria,terms,seals,occurrences.{id,space.{name},rule,startsOn,startsAt,endsOn,endsAt,frequency,description}',
             '@files' => '(avatar.avatarMedium,avatar.avatarBig):url',
-            '@order' => 'name ASC',
-            '@seals' => '32'  // Filtrar apenas eventos com selo 32
+            '@order' => 'name ASC'
         ];
+        
+        // Adiciona filtro de selo se não especificado (padrão: todos os eventos)
+        if (!isset($params['@seals'])) {
+            // Não filtra por selo por padrão - busca todos
+        }
         
         $params = array_merge($defaultParams, $params);
         
@@ -53,6 +57,29 @@ class MapaCulturalAPI {
         }
         
         $result = $this->makeRequest('/term/list', ['taxonomy' => $taxonomy]);
+        
+        if ($this->cache && $this->cache->isConnected()) {
+            $this->cache->set($cacheKey, $result, 86400); // 24h
+        }
+        
+        return $result;
+    }
+    
+    /**
+     * Busca selos disponíveis
+     */
+    public function getSeals() {
+        $cacheKey = "api:seals";
+        
+        if ($this->cache && $this->cache->isConnected()) {
+            $cached = $this->cache->get($cacheKey);
+            if ($cached) return $cached;
+        }
+        
+        $result = $this->makeRequest('/seal/find', [
+            '@select' => 'id,name,shortDescription',
+            '@order' => 'name ASC'
+        ]);
         
         if ($this->cache && $this->cache->isConnected()) {
             $this->cache->set($cacheKey, $result, 86400); // 24h
@@ -120,14 +147,14 @@ class MapaCulturalAPI {
     /**
      * Busca todos os eventos (com paginação automática)
      */
-    public function getAllEvents($onProgress = null) {
+    public function getAllEvents($onProgress = null, $filters = []) {
         $allEvents = [];
         $page = 1;
         $limit = 100;
         
         do {
             try {
-                $events = $this->getEventsPaginated($page, $limit);
+                $events = $this->getEventsPaginated($page, $limit, $filters);
                 
                 if (empty($events)) {
                     break;

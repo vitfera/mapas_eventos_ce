@@ -197,7 +197,13 @@
                 class="w-full px-4 py-2.5 rounded-xl bg-background/50 border border-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
               />
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-3 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-muted-foreground mb-2">Filtrar por Selo</label>
+                <select id="filterSelo" class="w-full px-4 py-2.5 rounded-xl bg-background/50 border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50">
+                  <option value="">Todos os selos</option>
+                </select>
+              </div>
               <div>
                 <label class="block text-sm font-medium text-muted-foreground mb-2">Filtrar por Município</label>
                 <select id="filterMunicipio" class="w-full px-4 py-2.5 rounded-xl bg-background/50 border border-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50">
