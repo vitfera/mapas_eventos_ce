@@ -17,10 +17,11 @@ try {
     // Parâmetros
     $municipio = $_GET['municipio'] ?? null;
     $linguagem = $_GET['linguagem'] ?? null;
+    $selo = $_GET['selo'] ?? null;
     $periodo = $_GET['periodo'] ?? 'todos'; // futuros, passados, todos
     
     // Chave de cache
-    $cacheKey = "eventos:" . md5(json_encode(['municipio' => $municipio, 'linguagem' => $linguagem, 'periodo' => $periodo]));
+    $cacheKey = "eventos:" . md5(json_encode(['municipio' => $municipio, 'linguagem' => $linguagem, 'selo' => $selo, 'periodo' => $periodo]));
     
     // Tenta buscar do cache
     if ($cache->isConnected()) {
@@ -34,10 +35,13 @@ try {
     // Query base
     $sql = "SELECT 
                 e.*,
-                GROUP_CONCAT(DISTINCT l.nome SEPARATOR ', ') as linguagens
+                GROUP_CONCAT(DISTINCT l.nome SEPARATOR ', ') as linguagens,
+                GROUP_CONCAT(DISTINCT s.nome SEPARATOR ', ') as selos
             FROM eventos e
             LEFT JOIN eventos_linguagens el ON e.id = el.evento_id
-            LEFT JOIN linguagens l ON el.linguagem_id = l.id";
+            LEFT JOIN linguagens l ON el.linguagem_id = l.id
+            LEFT JOIN eventos_selos es ON e.id = es.evento_id
+            LEFT JOIN selos s ON es.selo_id = s.id";
     
     $where = [];
     $params = [];
@@ -51,6 +55,11 @@ try {
     if ($linguagem) {
         $where[] = "l.nome = :linguagem";
         $params['linguagem'] = $linguagem;
+    }
+    
+    if ($selo) {
+        $where[] = "s.external_id = :selo";
+        $params['selo'] = $selo;
     }
     
     // Filtro de período
@@ -80,6 +89,10 @@ try {
     if ($linguagem) {
         $countSql .= " LEFT JOIN eventos_linguagens el ON e.id = el.evento_id
                        LEFT JOIN linguagens l ON el.linguagem_id = l.id";
+    }
+    if ($selo) {
+        $countSql .= " LEFT JOIN eventos_selos es ON e.id = es.evento_id
+                       LEFT JOIN selos s ON es.selo_id = s.id";
     }
     if (!empty($where)) {
         $countSql .= " WHERE " . implode(" AND ", $where);

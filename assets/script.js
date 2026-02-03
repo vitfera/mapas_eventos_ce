@@ -157,6 +157,10 @@
         _t: Date.now()
       });
 
+      if (state.filters.selo) {
+        params.append('selo', state.filters.selo);
+      }
+
       if (state.filters.municipio) {
         params.append('municipio', state.filters.municipio);
       }

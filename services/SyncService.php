@@ -136,6 +136,11 @@ class SyncService {
             $this->syncEventLanguages($eventoId, $apiEvent['terms']['linguagem']);
         }
 
+        // Processa selos
+        if (!empty($apiEvent['seals'])) {
+            $this->syncEventSeals($eventoId, $apiEvent['seals']);
+        }
+
         return $resultado;
     }
     
@@ -343,6 +348,57 @@ class SyncService {
         // Cria nova linguagem
         $stmt = $this->db->prepare("INSERT INTO linguagens (nome) VALUES (?)");
         $stmt->execute([$nome]);
+        
+        return $this->db->lastInsertId();
+    }
+    
+    /**
+     * Sincroniza selos de um evento
+     */
+    private function syncEventSeals($eventoId, $selos) {
+        // Remove selos antigos
+        $stmt = $this->db->prepare("DELETE FROM eventos_selos WHERE evento_id = ?");
+        $stmt->execute([$eventoId]);
+        
+        // Insere novos selos
+        foreach ($selos as $seloData) {
+            if (is_array($seloData) && isset($seloData['id'])) {
+                // Busca ou cria selo
+                $seloId = $this->getOrCreateSeal($seloData);
+                
+                if ($seloId) {
+                    $stmt = $this->db->prepare("INSERT IGNORE INTO eventos_selos (evento_id, selo_id) VALUES (?, ?)");
+                    $stmt->execute([$eventoId, $seloId]);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Busca ou cria selo
+     */
+    private function getOrCreateSeal($seloData) {
+        $externalId = $seloData['id'];
+        
+        $stmt = $this->db->prepare("SELECT id FROM selos WHERE external_id = ?");
+        $stmt->execute([$externalId]);
+        $selo = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($selo) {
+            // Atualiza nome se mudou
+            if (isset($seloData['name'])) {
+                $stmt = $this->db->prepare("UPDATE selos SET nome = ?, updated_at = NOW() WHERE id = ?");
+                $stmt->execute([$seloData['name'], $selo['id']]);
+            }
+            return $selo['id'];
+        }
+        
+        // Cria novo selo
+        $nome = $seloData['name'] ?? 'Selo sem nome';
+        $descricao = $seloData['shortDescription'] ?? null;
+        
+        $stmt = $this->db->prepare("INSERT INTO selos (external_id, nome, descricao) VALUES (?, ?, ?)");
+        $stmt->execute([$externalId, $nome, $descricao]);
         
         return $this->db->lastInsertId();
     }

@@ -7,10 +7,11 @@ header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, OPTIONS');
 
-require_once __DIR__ . '/../services/MapaCulturalAPI.php';
+require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/redis.php';
 
 try {
+    $db = Database::getInstance()->getConnection();
     $cache = RedisCache::getInstance();
     $cacheKey = 'api:seals:list';
     
@@ -23,14 +24,27 @@ try {
         }
     }
     
-    // Busca selos da API
-    $api = new MapaCulturalAPI();
-    $seals = $api->getSeals();
+    // Busca selos do banco de dados
+    $sql = "SELECT id, external_id, nome as name, descricao as shortDescription 
+            FROM selos 
+            ORDER BY nome ASC";
+    $stmt = $db->prepare($sql);
+    $stmt->execute();
+    $seals = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Formata resposta usando external_id como id
+    $formattedSeals = array_map(function($seal) {
+        return [
+            'id' => $seal['external_id'],
+            'name' => $seal['nome'],
+            'shortDescription' => $seal['descricao']
+        ];
+    }, $seals);
     
     $response = [
         'success' => true,
-        'data' => $seals,
-        'total' => count($seals),
+        'data' => $formattedSeals,
+        'total' => count($formattedSeals),
         'timestamp' => date('Y-m-d H:i:s')
     ];
     
