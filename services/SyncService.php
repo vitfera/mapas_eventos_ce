@@ -362,7 +362,8 @@ class SyncService {
         
         // Insere novos selos
         foreach ($selos as $seloData) {
-            if (is_array($seloData) && isset($seloData['id'])) {
+            // Verifica se tem pelo menos o nome do selo
+            if (is_array($seloData) && !empty($seloData['name'])) {
                 // Busca ou cria selo
                 $seloId = $this->getOrCreateSeal($seloData);
                 
@@ -378,25 +379,39 @@ class SyncService {
      * Busca ou cria selo
      */
     private function getOrCreateSeal($seloData) {
-        $externalId = $seloData['id'];
+        $externalId = !empty($seloData['id']) ? $seloData['id'] : null;
+        $nome = $seloData['name'] ?? 'Selo sem nome';
+        $descricao = $seloData['shortDescription'] ?? null;
         
-        $stmt = $this->db->prepare("SELECT id FROM selos WHERE external_id = ?");
-        $stmt->execute([$externalId]);
+        // Primeiro tenta buscar por external_id se existir
+        if ($externalId) {
+            $stmt = $this->db->prepare("SELECT id FROM selos WHERE external_id = ?");
+            $stmt->execute([$externalId]);
+            $selo = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($selo) {
+                // Atualiza nome e descrição se mudaram
+                $stmt = $this->db->prepare("UPDATE selos SET nome = ?, descricao = ?, updated_at = NOW() WHERE id = ?");
+                $stmt->execute([$nome, $descricao, $selo['id']]);
+                return $selo['id'];
+            }
+        }
+        
+        // Se não encontrou por ID, busca por nome
+        $stmt = $this->db->prepare("SELECT id, external_id FROM selos WHERE nome = ?");
+        $stmt->execute([$nome]);
         $selo = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($selo) {
-            // Atualiza nome se mudou
-            if (isset($seloData['name'])) {
-                $stmt = $this->db->prepare("UPDATE selos SET nome = ?, updated_at = NOW() WHERE id = ?");
-                $stmt->execute([$seloData['name'], $selo['id']]);
+            // Se tinha external_id vazio e agora tem, atualiza
+            if ($externalId && !$selo['external_id']) {
+                $stmt = $this->db->prepare("UPDATE selos SET external_id = ?, descricao = ?, updated_at = NOW() WHERE id = ?");
+                $stmt->execute([$externalId, $descricao, $selo['id']]);
             }
             return $selo['id'];
         }
         
         // Cria novo selo
-        $nome = $seloData['name'] ?? 'Selo sem nome';
-        $descricao = $seloData['shortDescription'] ?? null;
-        
         $stmt = $this->db->prepare("INSERT INTO selos (external_id, nome, descricao) VALUES (?, ?, ?)");
         $stmt->execute([$externalId, $nome, $descricao]);
         

@@ -36,8 +36,8 @@ try {
     $formattedSeals = array_map(function($seal) {
         return [
             'id' => $seal['external_id'],
-            'name' => $seal['nome'],
-            'shortDescription' => $seal['descricao']
+            'name' => $seal['name'],
+            'shortDescription' => $seal['shortDescription']
         ];
     }, $seals);
     
