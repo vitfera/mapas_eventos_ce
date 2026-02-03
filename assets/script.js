@@ -546,7 +546,7 @@
       const seals = state.seals.sort((a, b) => a.name.localeCompare(b.name));
       filterSelo.innerHTML = `
         <option value="">Todos os selos (${seals.length})</option>
-        ${seals.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+        ${seals.map(s => `<option value="${s.id}">${s.name} (${s.id})</option>`).join('')}
       `;
     }
   }
