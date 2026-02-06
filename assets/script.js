@@ -209,8 +209,9 @@
       });
       
       state.events = result.data;
+      state.filteredEvents = result.data;
       filterEvents();
-      updateTableCount(result.pagination?.total || result.data.length);
+      updateTableCount(state.filteredEvents.length);
       
       // Atualiza estatísticas dinâmicas após carregar eventos
       updateDynamicStats();
@@ -268,6 +269,7 @@
     state.filteredEvents = filtered;
     updateTable();
     updateTableCount(filtered.length);
+    updateDynamicStats();
   }
 
   // Sincroniza dados com a API externa
@@ -333,10 +335,19 @@
 
   // Atualiza estatísticas dinâmicas (calculadas a partir dos eventos carregados)
   function updateDynamicStats() {
-    if (!state.events || state.events.length === 0) return;
+    // Usa eventos filtrados se houver filtros ativos, senão usa todos
+    const eventos = state.filteredEvents && state.filteredEvents.length > 0 ? state.filteredEvents : state.events;
+    
+    if (!eventos || eventos.length === 0) return;
+    
+    // Total de eventos filtrados
+    const totalEventsEl = document.getElementById('totalEvents');
+    if (totalEventsEl) {
+      totalEventsEl.textContent = eventos.length.toLocaleString('pt-BR');
+    }
     
     // Total de espaços únicos
-    const espacosUnicos = new Set(state.events.map(e => e.local_nome).filter(Boolean)).size;
+    const espacosUnicos = new Set(eventos.map(e => e.local_nome).filter(Boolean)).size;
     const totalEspacosEl = document.getElementById('totalEspacos');
     if (totalEspacosEl) {
       totalEspacosEl.textContent = espacosUnicos.toLocaleString('pt-BR');
@@ -346,7 +357,7 @@
     const now = new Date();
     const mesAtual = now.getMonth();
     const anoAtual = now.getFullYear();
-    const eventosEsteMes = state.events.filter(e => {
+    const eventosEsteMes = eventos.filter(e => {
       if (!e.data_inicio) return false;
       const dataEvento = new Date(e.data_inicio);
       return dataEvento.getMonth() === mesAtual && dataEvento.getFullYear() === anoAtual;
@@ -359,7 +370,7 @@
     // Próximos eventos (a partir de hoje)
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
-    const eventosProximos = state.events.filter(e => {
+    const eventosProximos = eventos.filter(e => {
       if (!e.data_inicio) return false;
       const dataEvento = new Date(e.data_inicio);
       return dataEvento >= hoje;
