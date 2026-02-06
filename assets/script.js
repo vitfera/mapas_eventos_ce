@@ -324,13 +324,8 @@
   function updateStatsUI() {
     if (!state.stats) return;
 
-    const { geral } = state.stats;
-
-    // Total de eventos
-    const totalEventsEl = document.getElementById('totalEvents');
-    if (totalEventsEl) {
-      totalEventsEl.textContent = (geral.total_eventos || 0).toLocaleString('pt-BR');
-    }
+    // As estatísticas de eventos, espaços, etc são calculadas dinamicamente
+    // em updateDynamicStats() baseadas nos eventos filtrados
   }
 
   // Atualiza estatísticas dinâmicas (calculadas a partir dos eventos carregados)
