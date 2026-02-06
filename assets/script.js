@@ -5,7 +5,7 @@
     filteredEvents: [],
     stats: null,
     filters: {
-      selo: '',
+      selo: [],
       municipio: '',
       linguagem: '',
       search: '',
@@ -46,10 +46,38 @@
       exportBtn.addEventListener('click', exportToCSV);
     }
 
-    if (filterSelo) {
-      filterSelo.addEventListener('change', (e) => {
-        state.filters.selo = e.target.value;
-        loadEvents();
+    // Dropdown de selos
+    const filterSeloButton = document.getElementById('filterSeloButton');
+    const filterSeloDropdown = document.getElementById('filterSeloDropdown');
+    
+    if (filterSeloButton && filterSeloDropdown) {
+      // Toggle dropdown
+      filterSeloButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        filterSeloDropdown.classList.toggle('hidden');
+      });
+      
+      // Fecha dropdown ao clicar fora
+      document.addEventListener('click', (e) => {
+        if (!filterSeloButton.contains(e.target) && !filterSeloDropdown.contains(e.target)) {
+          filterSeloDropdown.classList.add('hidden');
+        }
+      });
+    }
+    
+    // Event delegation para checkboxes de selos
+    const filterSeloContainer = document.getElementById('filterSeloContainer');
+    if (filterSeloContainer) {
+      filterSeloContainer.addEventListener('change', (e) => {
+        if (e.target.type === 'checkbox' && e.target.name === 'selo') {
+          if (e.target.checked) {
+            state.filters.selo.push(e.target.value);
+          } else {
+            state.filters.selo = state.filters.selo.filter(s => s !== e.target.value);
+          }
+          updateSeloButtonText();
+          loadEvents();
+        }
       });
     }
 
@@ -157,8 +185,8 @@
         _t: Date.now()
       });
 
-      if (state.filters.selo) {
-        params.append('selo', state.filters.selo);
+      if (state.filters.selo && state.filters.selo.length > 0) {
+        params.append('selo', state.filters.selo.join(','));
       }
 
       if (state.filters.municipio) {
@@ -540,14 +568,44 @@
 
   // Atualiza filtro de selos
   function updateSealsFilter() {
-    const filterSelo = document.getElementById('filterSelo');
+    const filterSeloContainer = document.getElementById('filterSeloContainer');
     
-    if (filterSelo && state.seals) {
+    if (filterSeloContainer && state.seals) {
       const seals = state.seals.sort((a, b) => a.name.localeCompare(b.name));
-      filterSelo.innerHTML = `
-        <option value="">Todos os selos (${seals.length})</option>
-        ${seals.map(s => `<option value="${s.id}">${s.name} (${s.id})</option>`).join('')}
+      
+      filterSeloContainer.innerHTML = `
+        <div class="space-y-1">
+          ${seals.map(s => `
+            <label class="flex items-center space-x-2 cursor-pointer hover:bg-accent/50 p-2 rounded-lg transition-colors">
+              <input 
+                type="checkbox" 
+                name="selo" 
+                value="${s.id}"
+                class="w-4 h-4 rounded border-input text-primary focus:ring-2 focus:ring-primary/50"
+              />
+              <span class="text-sm flex-1">${s.name}</span>
+              <span class="text-xs text-muted-foreground">${s.id}</span>
+            </label>
+          `).join('')}
+        </div>
       `;
+    }
+  }
+  
+  // Atualiza texto do botão de selos
+  function updateSeloButtonText() {
+    const filterSeloText = document.getElementById('filterSeloText');
+    if (!filterSeloText) return;
+    
+    const count = state.filters.selo.length;
+    if (count === 0) {
+      filterSeloText.textContent = 'Todos os selos';
+    } else if (count === 1) {
+      const seloId = state.filters.selo[0];
+      const selo = state.seals?.find(s => s.id == seloId);
+      filterSeloText.textContent = selo ? selo.name : `1 selo selecionado`;
+    } else {
+      filterSeloText.textContent = `${count} selos selecionados`;
     }
   }
 

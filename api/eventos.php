@@ -58,8 +58,19 @@ try {
     }
     
     if ($selo) {
-        $where[] = "s.external_id = :selo";
-        $params['selo'] = $selo;
+        // Suporta múltiplos selos separados por vírgula
+        $seloIds = array_map('trim', explode(',', $selo));
+        $seloIds = array_filter($seloIds); // Remove vazios
+        
+        if (count($seloIds) > 0) {
+            $seloPlaceholders = [];
+            foreach ($seloIds as $index => $seloId) {
+                $placeholder = "selo{$index}";
+                $seloPlaceholders[] = ":{$placeholder}";
+                $params[$placeholder] = $seloId;
+            }
+            $where[] = "s.external_id IN (" . implode(',', $seloPlaceholders) . ")";
+        }
     }
     
     // Filtro de período
