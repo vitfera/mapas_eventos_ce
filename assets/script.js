@@ -23,9 +23,64 @@
 
   // Inicialização quando o DOM estiver carregado
   document.addEventListener('DOMContentLoaded', () => {
+    initializeTheme();
     initializeEventListeners();
     loadInitialData();
   });
+
+  // Gerenciamento de Tema
+  function initializeTheme() {
+    const themeToggle = document.getElementById('themeToggle');
+    const themeIconSun = document.getElementById('themeIconSun');
+    const themeIconMoon = document.getElementById('themeIconMoon');
+    
+    // Verifica preferência salva ou do sistema
+    // Padrão é dark, então se não tiver nada ou for 'dark', não põe atributo. Se for 'light', põe.
+    const savedTheme = localStorage.getItem('theme');
+    const systemPrefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+    
+    // Determina o tema inicial
+    let initialTheme = 'dark';
+    if (savedTheme) {
+      initialTheme = savedTheme;
+    } else if (systemPrefersLight) {
+      initialTheme = 'light';
+    }
+
+    applyTheme(initialTheme);
+
+    if (themeToggle) {
+      themeToggle.addEventListener('click', () => {
+        const currentTheme = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+        applyTheme(newTheme);
+      });
+    }
+
+    function applyTheme(theme) {
+      if (theme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+        if (themeIconSun) themeIconSun.classList.remove('hidden'); // No modo light, mostra o sol (para indicar que está claro) ou a lua (para ir pro escuro)?
+        // Geralmente ícone mostra o ESTADO ATUAL ou a AÇÃO.
+        // No HTML original: Sun icon visível.
+        // Vamos padronizar: Ícone mostra o que vai acontecer se clicar (ou o estado oposto).
+        // Se está Light, mostra Lua (ir para Dark). Se está Dark, mostra Sol (ir para Light).
+        
+        // Ajuste: O ícone Sun estava visível por padrão no HTML original (que parecia ser dark mode visually).
+        // Vamos seguir:
+        // Dark Mode -> Botão mostra Sol (clique para Light)
+        // Light Mode -> Botão mostra Lua (clique para Dark)
+        
+        if (themeIconSun) themeIconSun.classList.add('hidden');
+        if (themeIconMoon) themeIconMoon.classList.remove('hidden');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+        if (themeIconSun) themeIconSun.classList.remove('hidden');
+        if (themeIconMoon) themeIconMoon.classList.add('hidden');
+      }
+      localStorage.setItem('theme', theme);
+    }
+  }
 
   // Event listeners
   function initializeEventListeners() {
