@@ -48,7 +48,7 @@ class SyncService {
             ];
             
             $this->writeLog("========================================");
-            $this->writeLog("INÍCIO DA SINCRONIZAÇÃO");
+            $this->writeLog("INÍCIO DA SINCRONIZAÇÃO OTIMIZADA");
             $this->writeLog("========================================");
             $this->writeLog("Iniciando busca de eventos da API...");
             
@@ -58,25 +58,77 @@ class SyncService {
             });
             
             $this->writeLog("Total de eventos encontrados: " . count($events));
-            $this->writeLog("Iniciando processamento dos eventos...");
-            
             $stats['total'] = count($events);
             
-            // Processa cada evento
+            // ========================================
+            // OTIMIZAÇÃO: Carrega todos eventos existentes em memória (1 query vs 12k queries)
+            // ========================================
+            $this->writeLog("Carregando eventos existentes do banco...");
+            $existingEvents = $this->loadExistingEvents();
+            $this->writeLog("Total de eventos existentes: " . count($existingEvents));
+            
+            // ========================================
+            // OTIMIZAÇÃO: Carrega linguagens e selos em cache
+            // ========================================
+            $this->writeLog("Carregando linguagens e selos em cache...");
+            $linguagensCache = $this->loadLanguagesCache();
+            $selosCache = $this->loadSealsCache();
+            $this->writeLog("Cache carregado: " . count($linguagensCache) . " linguagens, " . count($selosCache) . " selos");
+            
+            // Separa eventos em novos e para atualizar
+            $novosEventos = [];
+            $eventosParaAtualizar = [];
+            
+            $this->writeLog("Separando eventos novos e para atualização...");
             foreach ($events as $event) {
                 try {
-                    $resultado = $this->processEvent($event);
+                    $externalId = $event['id'];
+                    $data = $this->extractEventData($event);
                     
-                    if ($resultado === 'novo') {
-                        $stats['novos']++;
-                    } elseif ($resultado === 'atualizado') {
-                        $stats['atualizados']++;
+                    // Ignora eventos sem nome válido
+                    if (empty($data['nome']) || trim($data['nome']) === '' || $data['nome'] === 'Sem nome') {
+                        continue;
+                    }
+                    
+                    // Armazena dados extras
+                    $data['_linguagens'] = $event['terms']['linguagem'] ?? [];
+                    $data['_selos'] = $event['seals'] ?? [];
+                    
+                    if (isset($existingEvents[$externalId])) {
+                        $data['_db_id'] = $existingEvents[$externalId];
+                        $eventosParaAtualizar[] = $data;
+                    } else {
+                        $novosEventos[] = $data;
                     }
                     
                 } catch (Exception $e) {
                     $stats['erros']++;
-                    error_log("Erro ao processar evento ID {$event['id']}: " . $e->getMessage());
+                    $this->writeLog("Erro ao processar evento ID {$event['id']}: " . $e->getMessage());
                 }
+            }
+            
+            $this->writeLog("Eventos a inserir: " . count($novosEventos));
+            $this->writeLog("Eventos a atualizar: " . count($eventosParaAtualizar));
+            
+            // ========================================
+            // OTIMIZAÇÃO: Processa em lotes (batches)
+            // ========================================
+            $batchSize = 500;
+            
+            // Insere novos em lotes
+            if (count($novosEventos) > 0) {
+                $this->writeLog("Inserindo novos eventos em lotes de $batchSize...");
+                $novosInseridos = $this->batchInsertEvents($novosEventos, $batchSize, $linguagensCache, $selosCache);
+                $stats['novos'] = $novosInseridos;
+                $this->writeLog("Novos eventos inseridos: $novosInseridos");
+            }
+            
+            // Atualiza existentes em lotes
+            if (count($eventosParaAtualizar) > 0) {
+                $this->writeLog("Atualizando eventos existentes em lotes de $batchSize...");
+                $atualizados = $this->batchUpdateEvents($eventosParaAtualizar, $batchSize, $linguagensCache, $selosCache);
+                $stats['atualizados'] = $atualizados;
+                $this->writeLog("Eventos atualizados: $atualizados");
             }
             
             // Finaliza log
@@ -104,44 +156,216 @@ class SyncService {
     }
     
     /**
-     * Processa um evento individual
+     * OTIMIZAÇÃO: Carrega todos eventos existentes em memória
+     * Retorna array [external_id => db_id]
      */
-    private function processEvent($apiEvent) {
-        $externalId = $apiEvent['id'];
-        $data = $this->extractEventData($apiEvent);
-
-        // Ignora eventos sem nome válido
-        if (empty($data['nome']) || trim($data['nome']) === '' || $data['nome'] === 'Sem nome') {
-            return 'ignorado';
+    private function loadExistingEvents() {
+        $stmt = $this->db->query("SELECT id, external_id FROM eventos");
+        $existing = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $existing[$row['external_id']] = $row['id'];
         }
-
-        // Verifica se já existe
-        $stmt = $this->db->prepare("SELECT id FROM eventos WHERE external_id = ?");
-        $stmt->execute([$externalId]);
-        $existing = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if ($existing) {
-            // Atualiza
-            $this->updateEvent($existing['id'], $data);
-            $eventoId = $existing['id'];
-            $resultado = 'atualizado';
-        } else {
-            // Insere novo
-            $eventoId = $this->insertEvent($data);
-            $resultado = 'novo';
+        return $existing;
+    }
+    
+    /**
+     * OTIMIZAÇÃO: Carrega linguagens em cache
+     * Retorna array [nome => id]
+     */
+    private function loadLanguagesCache() {
+        $stmt = $this->db->query("SELECT id, nome FROM linguagens");
+        $cache = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $cache[$row['nome']] = $row['id'];
         }
-
-        // Processa linguagens
-        if (!empty($apiEvent['terms']['linguagem'])) {
-            $this->syncEventLanguages($eventoId, $apiEvent['terms']['linguagem']);
+        return $cache;
+    }
+    
+    /**
+     * OTIMIZAÇÃO: Carrega selos em cache
+     * Retorna array [external_id => id] e [nome => id]
+     */
+    private function loadSealsCache() {
+        $stmt = $this->db->query("SELECT id, external_id, nome FROM selos");
+        $cache = ['by_id' => [], 'by_name' => []];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            if ($row['external_id']) {
+                $cache['by_id'][$row['external_id']] = $row['id'];
+            }
+            $cache['by_name'][$row['nome']] = $row['id'];
         }
-
-        // Processa selos
-        if (!empty($apiEvent['seals'])) {
-            $this->syncEventSeals($eventoId, $apiEvent['seals']);
+        return $cache;
+    }
+    
+    /**
+     * OTIMIZAÇÃO: Insere eventos em lotes com transações
+     */
+    private function batchInsertEvents($eventos, $batchSize, &$linguagensCache, &$selosCache) {
+        $total = 0;
+        $batches = array_chunk($eventos, $batchSize);
+        
+        foreach ($batches as $batchIndex => $batch) {
+            try {
+                $this->db->beginTransaction();
+                
+                foreach ($batch as $data) {
+                    $linguagens = $data['_linguagens'];
+                    $selos = $data['_selos'];
+                    unset($data['_linguagens'], $data['_selos']);
+                    
+                    $eventoId = $this->insertEvent($data);
+                    
+                    // Processa relacionamentos
+                    if (!empty($linguagens)) {
+                        $this->batchSyncLanguages($eventoId, $linguagens, $linguagensCache);
+                    }
+                    if (!empty($selos)) {
+                        $this->batchSyncSeals($eventoId, $selos, $selosCache);
+                    }
+                    
+                    $total++;
+                }
+                
+                $this->db->commit();
+                $this->writeLog("Lote " . ($batchIndex + 1) . "/" . count($batches) . " inserido: " . count($batch) . " eventos");
+                
+            } catch (Exception $e) {
+                $this->db->rollBack();
+                $this->writeLog("ERRO no lote " . ($batchIndex + 1) . ": " . $e->getMessage());
+                throw $e;
+            }
         }
-
-        return $resultado;
+        
+        return $total;
+    }
+    
+    /**
+     * OTIMIZAÇÃO: Atualiza eventos em lotes com transações
+     */
+    private function batchUpdateEvents($eventos, $batchSize, &$linguagensCache, &$selosCache) {
+        $total = 0;
+        $batches = array_chunk($eventos, $batchSize);
+        
+        foreach ($batches as $batchIndex => $batch) {
+            try {
+                $this->db->beginTransaction();
+                
+                foreach ($batch as $data) {
+                    $eventoId = $data['_db_id'];
+                    $linguagens = $data['_linguagens'];
+                    $selos = $data['_selos'];
+                    unset($data['_db_id'], $data['_linguagens'], $data['_selos']);
+                    
+                    $this->updateEvent($eventoId, $data);
+                    
+                    // Processa relacionamentos
+                    if (!empty($linguagens)) {
+                        $this->batchSyncLanguages($eventoId, $linguagens, $linguagensCache);
+                    }
+                    if (!empty($selos)) {
+                        $this->batchSyncSeals($eventoId, $selos, $selosCache);
+                    }
+                    
+                    $total++;
+                }
+                
+                $this->db->commit();
+                $this->writeLog("Lote " . ($batchIndex + 1) . "/" . count($batches) . " atualizado: " . count($batch) . " eventos");
+                
+            } catch (Exception $e) {
+                $this->db->rollBack();
+                $this->writeLog("ERRO no lote " . ($batchIndex + 1) . ": " . $e->getMessage());
+                throw $e;
+            }
+        }
+        
+        return $total;
+    }
+    
+    /**
+     * OTIMIZAÇÃO: Sincroniza linguagens usando cache
+     */
+    private function batchSyncLanguages($eventoId, $linguagens, &$cache) {
+        // Remove antigas
+        $stmt = $this->db->prepare("DELETE FROM eventos_linguagens WHERE evento_id = ?");
+        $stmt->execute([$eventoId]);
+        
+        if (empty($linguagens)) {
+            return;
+        }
+        
+        // Prepara statement para reutilização
+        $insertStmt = $this->db->prepare("INSERT IGNORE INTO eventos_linguagens (evento_id, linguagem_id) VALUES (?, ?)");
+        $createStmt = $this->db->prepare("INSERT INTO linguagens (nome) VALUES (?)");
+        
+        foreach ($linguagens as $nome) {
+            // Busca no cache
+            if (!isset($cache[$nome])) {
+                // Cria nova e adiciona ao cache
+                $createStmt->execute([$nome]);
+                $cache[$nome] = $this->db->lastInsertId();
+            }
+            
+            // Insere relacionamento
+            $insertStmt->execute([$eventoId, $cache[$nome]]);
+        }
+    }
+    
+    /**
+     * OTIMIZAÇÃO: Sincroniza selos usando cache
+     */
+    private function batchSyncSeals($eventoId, $selos, &$cache) {
+        // Remove antigos
+        $stmt = $this->db->prepare("DELETE FROM eventos_selos WHERE evento_id = ?");
+        $stmt->execute([$eventoId]);
+        
+        if (empty($selos)) {
+            return;
+        }
+        
+        // Prepara statements para reutilização
+        $insertStmt = $this->db->prepare("INSERT IGNORE INTO eventos_selos (evento_id, selo_id) VALUES (?, ?)");
+        $createStmt = $this->db->prepare("INSERT INTO selos (external_id, nome, descricao) VALUES (?, ?, ?)");
+        $updateStmt = $this->db->prepare("UPDATE selos SET nome = ?, descricao = ?, updated_at = NOW() WHERE id = ?");
+        
+        foreach ($selos as $seloData) {
+            if (!is_array($seloData) || empty($seloData['name'])) {
+                continue;
+            }
+            
+            $externalId = !empty($seloData['id']) ? $seloData['id'] : null;
+            $nome = $seloData['name'];
+            $descricao = $seloData['shortDescription'] ?? null;
+            
+            $seloId = null;
+            
+            // Busca por external_id no cache
+            if ($externalId && isset($cache['by_id'][$externalId])) {
+                $seloId = $cache['by_id'][$externalId];
+                // Atualiza se mudou
+                $updateStmt->execute([$nome, $descricao, $seloId]);
+            }
+            // Busca por nome no cache
+            elseif (isset($cache['by_name'][$nome])) {
+                $seloId = $cache['by_name'][$nome];
+            }
+            // Cria novo
+            else {
+                $createStmt->execute([$externalId, $nome, $descricao]);
+                $seloId = $this->db->lastInsertId();
+                
+                // Adiciona ao cache
+                if ($externalId) {
+                    $cache['by_id'][$externalId] = $seloId;
+                }
+                $cache['by_name'][$nome] = $seloId;
+            }
+            
+            // Insere relacionamento
+            if ($seloId) {
+                $insertStmt->execute([$eventoId, $seloId]);
+            }
+        }
     }
     
     /**
@@ -313,8 +537,9 @@ class SyncService {
         $stmt->execute();
     }
     
+    
     /**
-     * Sincroniza linguagens de um evento
+     * Sincroniza linguagens de um evento (MÉTODO LEGADO - mantido para compatibilidade)
      */
     private function syncEventLanguages($eventoId, $linguagens) {
         // Remove linguagens antigas
@@ -333,8 +558,9 @@ class SyncService {
         }
     }
     
+    
     /**
-     * Busca ou cria linguagem
+     * Busca ou cria linguagem (MÉTODO LEGADO - mantido para compatibilidade)
      */
     private function getOrCreateLanguage($nome) {
         $stmt = $this->db->prepare("SELECT id FROM linguagens WHERE nome = ?");
@@ -352,8 +578,9 @@ class SyncService {
         return $this->db->lastInsertId();
     }
     
+    
     /**
-     * Sincroniza selos de um evento
+     * Sincroniza selos de um evento (MÉTODO LEGADO - mantido para compatibilidade)
      */
     private function syncEventSeals($eventoId, $selos) {
         // Remove selos antigos
@@ -375,8 +602,9 @@ class SyncService {
         }
     }
     
+    
     /**
-     * Busca ou cria selo
+     * Busca ou cria selo (MÉTODO LEGADO - mantido para compatibilidade)
      */
     private function getOrCreateSeal($seloData) {
         $externalId = !empty($seloData['id']) ? $seloData['id'] : null;
