@@ -25,7 +25,7 @@ class MapaCulturalAPI {
         $defaultParams = [
             '@select' => 'id,name,shortDescription,longDescription,location,En_Municipio,En_Estado,En_CEP,acessibilidade,site,emailPublico,telefonePublico,classificacaoEtaria,terms,seals,occurrences.{id,space.{name},rule,startsOn,startsAt,endsOn,endsAt,frequency,description}',
             '@files' => '(avatar.avatarMedium,avatar.avatarBig):url',
-            '@order' => 'name ASC'
+            '@order' => 'id ASC'
         ];
         
         // Adiciona filtro de selo se não especificado (padrão: todos os eventos)
@@ -148,7 +148,8 @@ class MapaCulturalAPI {
      * Busca todos os eventos (com paginação automática)
      */
     public function getAllEvents($onProgress = null, $filters = []) {
-        $allEvents = [];
+        $eventsById = [];
+        $eventsWithoutId = [];
         $page = 1;
         $limit = 100;
         
@@ -160,10 +161,17 @@ class MapaCulturalAPI {
                     break;
                 }
                 
-                $allEvents = array_merge($allEvents, $events);
+                foreach ($events as $event) {
+                    if (isset($event['id']) && $event['id'] !== null) {
+                        // Evita duplicados entre páginas quando a API oscila na ordenação/paginação.
+                        $eventsById[(string)$event['id']] = $event;
+                    } else {
+                        $eventsWithoutId[] = $event;
+                    }
+                }
                 
                 if (is_callable($onProgress)) {
-                    $onProgress($page, count($events), count($allEvents));
+                    $onProgress($page, count($events), count($eventsById) + count($eventsWithoutId));
                 }
                 
                 $page++;
@@ -178,6 +186,6 @@ class MapaCulturalAPI {
             
         } while (count($events) === $limit);
         
-        return $allEvents;
+        return array_merge(array_values($eventsById), $eventsWithoutId);
     }
 }

@@ -455,7 +455,27 @@ class SyncService {
                 data_inicio, data_fim, hora_inicio, hora_fim, created_at, updated_at)
                 VALUES (:external_id, :nome, :descricao, :local, :local_nome, :municipio, :cep,
                 :latitude, :longitude, :telefone, :email, :site, :acessibilidade, 
-                :classificacao_etaria, :tags, :data_inicio, :data_fim, :hora_inicio, :hora_fim, NOW(), NOW())";
+                :classificacao_etaria, :tags, :data_inicio, :data_fim, :hora_inicio, :hora_fim, NOW(), NOW())
+                ON DUPLICATE KEY UPDATE
+                nome = VALUES(nome),
+                descricao = VALUES(descricao),
+                local = VALUES(local),
+                local_nome = VALUES(local_nome),
+                municipio = VALUES(municipio),
+                cep = VALUES(cep),
+                latitude = VALUES(latitude),
+                longitude = VALUES(longitude),
+                telefone = VALUES(telefone),
+                email = VALUES(email),
+                site = VALUES(site),
+                acessibilidade = VALUES(acessibilidade),
+                classificacao_etaria = VALUES(classificacao_etaria),
+                tags = VALUES(tags),
+                data_inicio = VALUES(data_inicio),
+                data_fim = VALUES(data_fim),
+                hora_inicio = VALUES(hora_inicio),
+                hora_fim = VALUES(hora_fim),
+                updated_at = NOW()";
         
         $stmt = $this->db->prepare($sql);
         
@@ -481,8 +501,22 @@ class SyncService {
         $stmt->bindValue(':hora_fim', $data['hora_fim'], $data['hora_fim'] === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
         
         $stmt->execute();
-        
-        return $this->db->lastInsertId();
+
+        $insertedId = $this->db->lastInsertId();
+        if (!empty($insertedId)) {
+            return $insertedId;
+        }
+
+        // Quando há conflito no external_id, o INSERT vira UPDATE e não retorna lastInsertId.
+        $stmt = $this->db->prepare("SELECT id FROM eventos WHERE external_id = ?");
+        $stmt->execute([$data['external_id']]);
+        $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$existing) {
+            throw new Exception("Não foi possível recuperar evento após upsert (external_id: {$data['external_id']})");
+        }
+
+        return $existing['id'];
     }
     
     /**
